@@ -3,6 +3,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from scipy.ndimage import gaussian_filter
 import pandas as pd
 import numpy as np
+import starfile
 import re
 import os
 from dataio import load_mrc, get_voxel_size, save_mrc
