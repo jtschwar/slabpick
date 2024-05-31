@@ -56,7 +56,7 @@ def main(config):
                     mosaic = Gallery(config.extract_shape, coords_scale_factor=config.coords_scale_factor)
                     mosaic.generate_slabs(tomo_path, star_path)
                     mosaic.generate_galleries(config.gallery_shape, config.output_dir, filename=filetag)
-                    processed.append(star_path)
+                    processed.append(os.path.basename(star_path))
                 start_time = time.time()
             time.sleep(config.t_interval)
             t_elapsed = time.time() - start_time
