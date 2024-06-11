@@ -201,6 +201,7 @@ class Minislab:
 def generate_from_copick(config: str,
                          out_dir: str,
                          particle_name: str,
+                         session_id: str,
                          voxel_spacing: float,
                          tomo_type: str,
                          extract_shape: tuple,
@@ -214,17 +215,19 @@ def generate_from_copick(config: str,
     config: copick configuration file 
     out_dir: directory to write galleries and bookkeeping file to
     particle_name: particle name
+    session_id: session id
     voxel_spacing: voxel spacing in Angstrom
     tomo_type: type of tomogram, e.g. 'denoised'
     extract_shape: subvolume extraction shape in Angstrom
     gallery_shape: number of particles along gallery (row,col)
     """
     cp_interface = CoPickWrangler(config)
-    coords = cp_interface.get_all_coords(particle_name)
+    coords = cp_interface.get_all_coords(particle_name, session_id)
     extract_shape = tuple((np.array(extract_shape)/voxel_spacing).astype(int))
     
     montage = Minislab(extract_shape)
     for run_name in coords.keys():
+        print(f"Processing tomogram {run_name}")
         volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
         coords_pixels = coords[run_name]/voxel_spacing
         montage.generate_slabs(volume, coords_pixels, run_name)

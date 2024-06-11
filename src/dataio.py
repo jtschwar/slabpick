@@ -59,15 +59,15 @@ class CoPickWrangler:
     Utilties to extract information from a copick project. 
     copick documentation: https://uermel.github.io/copick/
     """
-    def __init__(self, config):
+    def __init__(self, config: str):
         """
         Parameters
         ----------
-        config: copick configuration file 
+        config: str, copick configuration file 
         """
         self.root = CopickRootFSSpec.from_file(config)
 
-    def get_run_coords(self, run_name, particle_name):
+    def get_run_coords(self, run_name: str, particle_name: str, session_id: str) -> np.ndarray:
         """
         Extract coordinates for a partciular run.
 
@@ -75,19 +75,20 @@ class CoPickWrangler:
         ----------
         run_name: str, name of run 
         particle_name: str, name of particle
+        session_id: str, name of session   
 
         Returns
         -------
         np.array, shape (n_coords, 3) of coordinates in Angstrom
         """
-        try:
-            pick = self.root.get_run(run_name).get_picks(particle_name)[0]
-        except AttributeError:
-            print("Run or particle name not found")
+        pick = self.root.get_run(run_name).get_picks(particle_name, session_id=session_id)
+        if len(pick) == 0:
+            print(f"Picks json file may be missing for run: {run_name}")
             return np.empty(0)
+        pick = pick[0]
         return np.array([(p.location.x, p.location.y, p.location.z) for p in pick.points])
 
-    def get_run_tomogram(self, run_name, voxel_spacing, tomo_type):
+    def get_run_tomogram(self, run_name: str, voxel_spacing: float, tomo_type: str) -> zarr.core.Array:
         """
         Get tomogram for a particular run.
 
@@ -107,7 +108,7 @@ class CoPickWrangler:
         _, array = arrays[0] # 0 corresponds to unbinned
         return array
     
-    def get_run_names(self):
+    def get_run_names(self) -> list:
         """
         Extract all run names.
 
@@ -117,13 +118,14 @@ class CoPickWrangler:
         """
         return [run.name for run in self.root.runs]
 
-    def get_all_coords(self, particle_name):
+    def get_all_coords(self, particle_name: str, session_id: str) -> dict:
         """
         Extract all coordinates for a particle across a dataset.
 
         Parameters
         ----------
         particle_name: str, name of particle   
+        session_id: str, name of session
 
         Returns
         -------
@@ -132,7 +134,7 @@ class CoPickWrangler:
         runs = self.get_run_names()
         d_coords = {}
         for run in runs:
-            coords = self.get_run_coords(run, 'apo-ferritin')
+            coords = self.get_run_coords(run, particle_name, session_id)
             if len(coords) > 0:
                 d_coords[run] = coords
         return d_coords
