@@ -96,6 +96,9 @@ def read_starfile(in_star: str, col_name: str = "rlnTomoName", coords_scale: flo
     d_coords: dictionary of tomogram name: particle XYZ coordinates
     """
     particles = starfile.read(in_star)
+    if type(particles) == dict:
+        particles = particles['particles']
+
     tomo_names = np.unique(particles[col_name].values)
     d_coords = {}
     for tomo in tomo_names:
