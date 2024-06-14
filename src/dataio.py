@@ -2,6 +2,8 @@ from copick.impl.filesystem import CopickRootFSSpec
 import numpy as np
 import mrcfile
 import zarr
+import pandas as pd
+import starfile
 
 def load_mrc(filename):
     """ 
@@ -54,6 +56,55 @@ def get_voxel_size(filename, isotropic=True):
         return apix[0]
     return apix
 
+def make_starfile(d_coords: dict, out_file: str, coords_scale: float=1):
+    """
+    Write a Relion star file from the input coordinates. To convert
+    from copick to Relion 4 conventions, coords_scale_factor should 
+    be the inverse tilt-series (not tomogram) pixel size in Angstrom.
+    
+    Parameters
+    ----------
+    d_coords: dict, tomogram name: particle XYZ coordinates
+    out_file: str, output star file to write
+    coords_scale: float, multiplicative factor to apply to coordinates
+    """
+    rln = {}
+    rln['rlnTomoName'] = np.concatenate([d_coords[tomo].shape[0]*[tomo] for tomo in d_coords.keys()]).ravel()
+    rln['rlnCoordinateX'] = np.concatenate([d_coords[tomo][:,0] for tomo in d_coords.keys()]).ravel() * coords_scale
+    rln['rlnCoordinateY'] = np.concatenate([d_coords[tomo][:,1] for tomo in d_coords.keys()]).ravel() * coords_scale
+    rln['rlnCoordinateZ'] = np.concatenate([d_coords[tomo][:,2] for tomo in d_coords.keys()]).ravel() * coords_scale
+    for key in ['rlnAngleRot', 'rlnAngleTilt', 'rlnAnglePsi']:
+        rln[key] = np.zeros(len(rln['rlnCoordinateX']))
+    rln['rlnTomoManifoldIndex'] = np.ones(len(rln['rlnCoordinateX'])).astype(int)
+    rln['rlnTomoParticleId'] = np.arange(len(rln['rlnCoordinateX'])).astype(int)
+
+    rln_df = pd.DataFrame.from_dict(rln)
+    starfile.write(rln_df, out_file)
+
+def read_starfile(in_star: str, col_name: str = "rlnTomoName", coords_scale: float=1) -> dict:
+    """
+    Extract tomogram-associated coordinates from a starfile.
+    
+    Parameters
+    ----------
+    in_star: Relion-4 style starfile
+    col_name: column name for the tomograms
+    coords_scale: float, multiplicative factor to apply to coordinates 
+
+    Returns
+    -------
+    d_coords: dictionary of tomogram name: particle XYZ coordinates
+    """
+    particles = starfile.read(in_star)
+    tomo_names = np.unique(particles[col_name].values)
+    d_coords = {}
+    for tomo in tomo_names:
+        tomo_indices = np.where(particles[col_name].values==tomo)[0]
+        d_coords[tomo] = np.array([particles.rlnCoordinateX.iloc[tomo_indices],
+                                   particles.rlnCoordinateY.iloc[tomo_indices],
+                                   particles.rlnCoordinateZ.iloc[tomo_indices]]).T * coords_scale
+    return d_coords
+    
 class CoPickWrangler:
     """
     Utilties to extract information from a copick project. 

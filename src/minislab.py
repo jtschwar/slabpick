@@ -232,3 +232,52 @@ def generate_from_copick(config: str,
         coords_pixels = coords[run_name]/voxel_spacing
         montage.generate_slabs(volume, coords_pixels, run_name)
     montage.make_galleries(gallery_shape, voxel_spacing, out_dir, one_per_vol)
+
+def generate_from_starfile(vol_path: str,
+                           in_star: str,
+                           out_dir: str,
+                           extract_shape: tuple,
+                           coords_scale: float = 1,
+                           voxel_spacing: float = None,
+                           tomo_type: str = None,
+                           gallery_shape: tuple = (16,15),
+                           one_per_vol: bool = False):
+    """
+    Generate galleries based on coordinates in a starfile,
+    with the volumes loaded either indirectly through copick
+    or directly from a directory containing mrc files. The
+    coordinates scale factor should put the coordinates into A.
+
+    Parameters
+    ----------
+    vol_path: copick configuration file or directory of mrc files
+    in_star: starfile of particle coordinates
+    out_dir: directory to write galleries and bookkeeping file to
+    extract_shape: subvolume extraction shape in Angstrom
+    coords_scale: multiplicative factor to apply to coordinates
+    voxel_spacing: voxel spacing in Angstrom
+    tomo_type: type of tomogram, e.g. 'denoised'
+    gallery_shape: number of particles along gallery (row,col)
+    one_per_vol: generate one gallery per tomogram
+    """
+    coords = read_starfile(in_star, coords_scale=coords_scale)
+    extract_shape = tuple((np.array(extract_shape)/voxel_spacing).astype(int))
+    
+    load_method = ''
+    if os.path.isfile(vol_path):
+        cp_interface = CoPickWrangler(vol_path)
+        load_method = "copick"
+        assert voxel_spacing is not None and tomo_type is not None
+    else:
+        load_method = "mrc"
+
+    montage = Minislab(extract_shape)
+    for run_name in coords.keys():
+        print(f"Processing tomogram {run_name}")
+        if load_method == 'copick':
+            volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+        if load_method == 'mrc':
+            raise NotImplementedError
+        coords_pixels = coords[run_name]/voxel_spacing
+        montage.generate_slabs(volume, coords_pixels, run_name)
+    montage.make_galleries(gallery_shape, voxel_spacing, out_dir, one_per_vol)
