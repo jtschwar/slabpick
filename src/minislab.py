@@ -70,8 +70,8 @@ class Minislab:
             # crop particle-centered subvolume and project along z, ensuring even dimensions once projected
             c = c.astype(int)
             xstart, xend = c[2]-int(self.shape[2]/2), c[2]+int(self.shape[2]/2) 
-            ystart, yend = c[1]-int(self.shape[1]/2), c[1]+int(self.shape[1]/2) if self.shape[1]%2==0 else c[1]+int(self.shape[1]/2) + 1
-            zstart, zend = c[0]-int(self.shape[0]/2), c[0]+int(self.shape[0]/2) if self.shape[0]%2==0 else c[0]+int(self.shape[0]/2) + 1
+            ystart, yend = c[1]-int(self.shape[1]/2), c[1]+int(self.shape[1]/2) 
+            zstart, zend = c[0]-int(self.shape[0]/2), c[0]+int(self.shape[0]/2)
             if xstart < 0: xstart = 0
             if ystart < 0: ystart = 0
             if zstart < 0: zstart = 0
@@ -223,9 +223,12 @@ def generate_from_copick(config: str,
     """
     cp_interface = CoPickWrangler(config)
     coords = cp_interface.get_all_coords(particle_name, session_id)
-    extract_shape = tuple((np.array(extract_shape)/voxel_spacing).astype(int))
+    extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
+    odd_dims = np.where(extract_shape%2)[0]
+    if len(odd_dims) > 0:
+        extract_shape[odd_dims] -= 1
     
-    montage = Minislab(extract_shape)
+    montage = Minislab(tuple(extract_shape))
     for run_name in coords.keys():
         print(f"Processing tomogram {run_name}")
         volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
@@ -261,7 +264,10 @@ def generate_from_starfile(vol_path: str,
     one_per_vol: generate one gallery per tomogram
     """
     coords = read_starfile(in_star, coords_scale=coords_scale)
-    extract_shape = tuple((np.array(extract_shape)/voxel_spacing).astype(int))
+    extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
+    odd_dims = np.where(extract_shape%2)[0]
+    if len(odd_dims) > 0:
+        extract_shape[odd_dims] -= 1
     
     load_method = ''
     if os.path.isfile(vol_path):
@@ -271,7 +277,7 @@ def generate_from_starfile(vol_path: str,
     else:
         load_method = "mrc"
 
-    montage = Minislab(extract_shape)
+    montage = Minislab(tuple(extract_shape))
     for run_name in coords.keys():
         print(f"Processing tomogram {run_name}")
         if load_method == 'copick':
