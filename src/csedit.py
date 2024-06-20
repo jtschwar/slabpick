@@ -46,3 +46,21 @@ def curate_particles_map(cs_extract: np.ndarray,
     assert np.sum(np.abs(ini_map[indices[0]] - cs_map[indices[1]]))==0
     
     return particles_map.iloc[indices[0]]
+
+def curate_by_class(cs_extract: np.ndarray,
+                    classes: np.ndarray) -> np.ndarray:
+    """
+    Select entries from a Cryosparc 2d class averaging result
+    that belong to the requested classes.
+    
+    Parameters
+    ----------
+    cs_extract: np.recarray, from Cryosparc JX_0XX_particles.cs 
+    classes: np.array, class indices to retain
+    
+    Returns
+    -------
+    np.recarray, entries in requested classes
+    """
+    inlist = np.isin(cs_extract['alignments2D/class'], classes)
+    return cs_extract[inlist]
