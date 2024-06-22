@@ -9,6 +9,7 @@ src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../src'))
 sys.path.append(src_dir)
 from dataio import CoPickWrangler
 from dataio import make_starfile
+from dataio import read_starfile
 from csedit import curate_particles_map
 from minislab import Minislab
 
@@ -18,14 +19,16 @@ def parse_args():
     parser = ArgumentParser(description="Generate starfile based on cryosparc-curated picks.")
     parser.add_argument("--copick_json", type=str, required=True,
                         help="Copick json file")
+    parser.add_argument("--in_star", type=str, required=False,
+                        help="Starfile containing coordinates associated with map_file")
     parser.add_argument("--cs_file", type=str, required=True,
                         help="Cryosparc extraction job, e.g. topaz_picked_particles.cs")
     parser.add_argument("--map_file", type=str, required=True,
                         help="Bookkeeping file mapping particles to gallery tiles")
-    parser.add_argument("--particle_name", type=str, required=True,
-                        help="Copick particle name")
-    parser.add_argument("--session_id", type=str, required=True,
-                        help="Copick session ID")
+    parser.add_argument("--particle_name", type=str, required=False,
+                        help="Copick particle name, required if using copick for coordinates")
+    parser.add_argument("--session_id", type=str, required=False,
+                        help="Copick session ID, required if using copick for coordinates")
     parser.add_argument("--out_file", type=str, required=True,
                         help="Output starfile")
     parser.add_argument("--apix", type=float, required=True,
@@ -37,7 +40,10 @@ def main(config):
 
     # extract all particle coordinates
     cp_interface = CoPickWrangler(config.copick_json)
-    d_coords = cp_interface.get_all_coords(config.particle_name, config.session_id)
+    if config.in_star:
+        d_coords = read_starfile(config.in_star, coords_scale=config.apix)
+    else:
+        d_coords = cp_interface.get_all_coords(config.particle_name, config.session_id)
     ini_particle_count = np.sum(np.array([d_coords[tomo].shape[0] for tomo in d_coords.keys()]))
 
     # map retained particles in cryosparc to gallery tiles
