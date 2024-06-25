@@ -3,7 +3,8 @@ import numpy as np
 
 def curate_particles_map(cs_extract: np.ndarray, 
                          particles_map: pd.DataFrame, 
-                         max_distance: float=0.2) -> pd.DataFrame:
+                         max_distance: float=0.2,
+                         rejected_set: bool=False) -> pd.DataFrame:
     """
     Curate a bookkeeping file that maps entries to gallery tiles
     based on particles retained in a cryosparc extraction job.
@@ -13,7 +14,8 @@ def curate_particles_map(cs_extract: np.ndarray,
     cs_extract: np.recarray, cryosparc topaz_picked_particles.cs 
     particles_map: pd.DataFrame, gallery bookkeeping file
     max_distance: float, fractional distance allowed for miscentering
-    
+    rejected_set: bool, if True return particles not in extract job
+
     Returns
     -------
     pd.DataFrame, reduced gallery bookkeeping file of retained particles
@@ -36,7 +38,7 @@ def curate_particles_map(cs_extract: np.ndarray,
     # extract gallery index of cryosparc-extracted particles
     cs_mgraph_id = cs_extract['location/micrograph_path']
     cs_mgraph_id = np.array([int(fn.decode("utf-8").split("_")[-1].split(".mrc")[0]) for fn in cs_mgraph_id]) 
-    assert np.all(cs_mgraph_id[:-1] <= cs_mgraph_id[1:])
+    #assert np.all(cs_mgraph_id[:-1] <= cs_mgraph_id[1:]) # ascending order of micrographs doesn't seem needed
     cs_mgraph_id = cs_mgraph_id[np.where(residual<max_distance)[0]]
     cs_map = np.array([cs_mgraph_id, cs_xpos, cs_ypos]).T
     
@@ -44,8 +46,13 @@ def curate_particles_map(cs_extract: np.ndarray,
     ini_map = np.array([particles_map.gallery.values, particles_map.col.values, particles_map.row.values]).T
     indices = np.where(np.prod(np.swapaxes(ini_map[:,:,None],1,2) == cs_map, axis=2).astype(bool))
     assert np.sum(np.abs(ini_map[indices[0]] - cs_map[indices[1]]))==0
-    
-    return particles_map.iloc[indices[0]]
+
+    # select either the retained or rejected indices
+    if rejected_set == False:
+        return particles_map.iloc[indices[0]]
+    else:
+        reject_indices = np.setdiff1d(np.arange(ini_map.shape[0]), indices[0])
+        return particles_map.iloc[reject_indices]
 
 def curate_by_class(cs_extract: np.ndarray,
                     classes: np.ndarray) -> np.ndarray:

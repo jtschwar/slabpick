@@ -33,6 +33,8 @@ def parse_args():
                         help="Output starfile")
     parser.add_argument("--apix", type=float, required=True,
                         help="Tilt-series pixel size (usually unbinned)")
+    parser.add_argument("--rejected_set", action='store_true',
+                        help="Extract coordinates of the rejected particles in the star file")
     
     return parser.parse_args()
 
@@ -49,7 +51,7 @@ def main(config):
     # map retained particles in cryosparc to gallery tiles
     cs_extract = np.load(config.cs_file)
     particles_map = pd.read_csv(config.map_file)
-    curated_map = curate_particles_map(cs_extract, particles_map)
+    curated_map = curate_particles_map(cs_extract, particles_map, rejected_set=config.rejected_set)
     
     # curate particles 
     d_coords_sel = {}
