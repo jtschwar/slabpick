@@ -4,6 +4,7 @@ import mrcfile
 import zarr
 import pandas as pd
 import starfile
+import json
 
 def load_mrc(filename):
     """ 
@@ -107,7 +108,24 @@ def read_starfile(in_star: str, col_name: str = "rlnTomoName", coords_scale: flo
                                    particles.rlnCoordinateY.iloc[tomo_indices],
                                    particles.rlnCoordinateZ.iloc[tomo_indices]]).T * coords_scale
     return d_coords
+
+def read_copick_json(fname: str) -> np.ndarray:
+    """
+    Read coordinates from an individual copick-formatted json file.
     
+    Parameters
+    ----------
+    fname: str, path to json file
+    
+    Returns
+    -------
+    np.ndarray, xyz coordinates in Angstrom
+    """
+    with open(fname) as f:
+        points = json.load(f)['points']
+    locs = [points[i]['location'] for i in range(len(points))]
+    return np.array([(locs[i]['x'], locs[i]['y'], locs[i]['z']) for i in range(len(locs))])
+
 class CoPickWrangler:
     """
     Utilties to extract information from a copick project. 
