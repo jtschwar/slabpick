@@ -4,7 +4,8 @@ import numpy as np
 def curate_particles_map(cs_extract: np.ndarray, 
                          particles_map: pd.DataFrame, 
                          max_distance: float=0.2,
-                         rejected_set: bool=False) -> pd.DataFrame:
+                         rejected_set: bool=False,
+                         run_name: str=None) -> pd.DataFrame:
     """
     Curate a bookkeeping file that maps entries to gallery tiles
     based on particles retained in a cryosparc extraction job.
@@ -15,6 +16,7 @@ def curate_particles_map(cs_extract: np.ndarray,
     particles_map: pd.DataFrame, gallery bookkeeping file
     max_distance: float, fractional distance allowed for miscentering
     rejected_set: bool, if True return particles not in extract job
+    run_name: str, tomogram name to curate
 
     Returns
     -------
@@ -43,6 +45,8 @@ def curate_particles_map(cs_extract: np.ndarray,
     cs_map = np.array([cs_mgraph_id, cs_xpos, cs_ypos]).T
     
     # map back to gallery bookkeeping file
+    if run_name is not None:
+        particles_map = particles_map.iloc[np.where(particles_map.tomogram==run_name)[0]]
     ini_map = np.array([particles_map.gallery.values, particles_map.col.values, particles_map.row.values]).T
     indices = np.where(np.prod(np.swapaxes(ini_map[:,:,None],1,2) == cs_map, axis=2).astype(bool))
     assert np.sum(np.abs(ini_map[indices[0]] - cs_map[indices[1]]))==0
@@ -54,6 +58,39 @@ def curate_particles_map(cs_extract: np.ndarray,
         reject_indices = np.setdiff1d(np.arange(ini_map.shape[0]), indices[0])
         return particles_map.iloc[reject_indices]
 
+def curate_particles_map_iterative(cs_extract: np.ndarray, 
+                                   particles_map: pd.DataFrame, 
+                                   max_distance: float=0.2,
+                                   rejected_set: bool=False) -> pd.DataFrame:
+    """
+    Wrapper for the curate_particles_map function that performs
+    the curation one tomogram at a time to avoid memory errors
+    for large particles_map files.
+    
+    Parameters
+    ----------
+    cs_extract: np.recarray, cryosparc topaz_picked_particles.cs 
+    particles_map: pd.DataFrame, gallery bookkeeping file
+    max_distance: float, fractional distance allowed for miscentering
+    rejected_set: bool, if True return particles not in extract job
+
+    Returns
+    -------
+    particles_map_heap: pd.DataFrame, reduced gallery bookkeeping of retained particles
+    """
+    tomo_list = np.unique(particles_map.tomogram.values)
+    for i,tomo in enumerate(tomo_list):
+        particles_map_sel = curate_particles_map(cs_extract,
+                                                 particles_map,
+                                                 max_distance=max_distance,
+                                                 rejected_set=rejected_set,
+                                                 run_name=tomo)
+        if i==0:
+            particles_map_heap = particles_map_sel
+        else:
+            particles_map_heap = pd.concat([particles_map_heap, particles_map_sel])
+    return particles_map_heap
+    
 def curate_by_class(cs_extract: np.ndarray,
                     classes: np.ndarray) -> np.ndarray:
     """
