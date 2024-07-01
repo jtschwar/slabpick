@@ -1,6 +1,107 @@
 import numpy as np
 import scipy.spatial
 
+def map_coordinates(coords1: np.ndarray,
+                    coords2: np.ndarray,
+                    threshold: float) -> np.ndarray:
+    """
+    Map coordinates between two sets based on a distance threshold.
+
+    Parameters
+    ----------
+    coords1: first set of coordinates in Angstrom
+    coords2: second set of coordinates in Angstrom
+    threshold: distance threshold in Angstrom
+
+    Returns
+    -------
+    clusters: array of paired entries
+    """
+    distances = scipy.spatial.distance.cdist(coords1, coords2)
+    clusters = np.where(distances < threshold)        
+    return np.array(clusters).T
+
+def consolidate_coordinates(coords1: np.ndarray,
+                            coords2: np.ndarray,
+                            threshold: float,
+                            weights: list=[0.5,0.5]) -> np.ndarray:
+    """
+    Consolidate two sets of coordinates, merging duplicates 
+    between the sets and retaining the unique entries.
+
+    Parameters
+    ----------
+    coords1: first set of coordinates in Angstrom
+    coords2: second set of coordinates in Angstrom
+    threshold: distance threshold in Angstrom
+    weights: weights for merging coords1 and coords2 duplicates
+
+    Returns
+    -------
+    coords_merge: consolidated set of coordinates in Angstrom
+    clusters: array of paired entries
+    """
+    clusters = map_coordinates(coords1, coords2, threshold)
+    c1_unique_indices = np.setdiff1d(np.arange(coords1.shape[0]), clusters[:,0])
+    c2_unique_indices = np.setdiff1d(np.arange(coords2.shape[0]), clusters[:,1])
+    coords_cluster = np.average((coords1[clusters[:,0]], coords2[clusters[:,1]]), 
+                                axis=0, weights=weights)
+    coords_merge = np.concatenate((coords1[c1_unique_indices], 
+                                   coords2[c2_unique_indices], 
+                                   coords_cluster))
+    return coords_merge, clusters
+
+def consolidate_coordinates_sets(d_coords1: dict,
+                                 d_coords2: dict,
+                                 threshold: float,
+                                 weights: list=[0.5,0.5],
+                                 ensure_unique: bool=True)-> tuple[dict,dict]:
+    """
+    Consolidate coordinates for every run in the dataset,
+    retaining the unique coordinates and merging pairs of
+    replicates represented in the input sets.
+    
+    Parameters
+    ----------
+    d_coords1: runs mapped to first set of coords in Angstrom
+    d_coords2: runs mapped to second set of coords in Angstrom
+    threshold: distance threshold in Angstrom for merging
+    weights: relative weights to apply when merging coords
+    ensure_unique: merge any lingering replicates
+    
+    Returns
+    -------
+    d_coords_merge: dict mapping runs to merged coords in Angstrom
+    d_clusters: dict mapping runs to indices of replicates between sets
+    """
+    tomo_list = list(d_coords1.keys()) + list(d_coords2.keys())
+    tomo_list = sorted(set(tomo_list), key=tomo_list.index)
+    
+    d_coords_merge, d_clusters = {}, {}
+    ini_count, final_count = 0, 0
+    for i,tomo in enumerate(tomo_list):
+        if (tomo in d_coords1.keys()) and (tomo in d_coords2.keys()):
+            d_coords_merge[tomo], d_clusters[tomo] = consolidate_coordinates(d_coords1[tomo],
+                                                                             d_coords2[tomo],
+                                                                             threshold,
+                                                                             weights)
+        elif (tomo in d_coords1.keys()):
+            d_coords_merge[tomo] = d_coords1[tomo]
+        elif (tomo in d_coords2.keys()):
+            d_coords_merge[tomo] = d_coords2[tomo]
+
+        if ensure_unique:
+            ini_count += d_coords_merge[tomo].shape[0]
+            d_coords_merge[tomo], nr = merge_replicates(d_coords_merge[tomo],
+                                                        threshold)
+        final_count += d_coords_merge[tomo].shape[0]
+
+    print(f"Final particle count: {final_count}")
+    if ensure_unique:
+        print(f"Additional duplicate removal merged  {ini_count-final_count} particles")
+            
+    return d_coords_merge, d_clusters
+
 def cluster_coordinates(coords: np.ndarray, 
                         threshold: float) -> list:
     """
