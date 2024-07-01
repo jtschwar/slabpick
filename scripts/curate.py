@@ -17,7 +17,7 @@ def parse_args():
     """ Parser for command line arguments.
     """
     parser = ArgumentParser(description="Generate starfile based on cryosparc-curated picks.")
-    parser.add_argument("--copick_json", type=str, required=True,
+    parser.add_argument("--copick_json", type=str, required=False,
                         help="Copick json file")
     parser.add_argument("--in_star", type=str, required=False,
                         help="Starfile containing coordinates associated with map_file")
@@ -41,11 +41,13 @@ def parse_args():
 def main(config):
 
     # extract all particle coordinates
-    cp_interface = CoPickWrangler(config.copick_json)
     if config.in_star:
         d_coords = read_starfile(config.in_star, coords_scale=config.apix)
-    else:
+    elif config.copick_json:
+        cp_interface = CoPickWrangler(config.copick_json)
         d_coords = cp_interface.get_all_coords(config.particle_name, config.session_id)
+    else:
+        raise ValueError("Either a copick config or a starfile must be provided.")
     ini_particle_count = np.sum(np.array([d_coords[tomo].shape[0] for tomo in d_coords.keys()]))
 
     # map retained particles in cryosparc to gallery tiles
