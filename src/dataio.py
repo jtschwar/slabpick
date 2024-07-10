@@ -1,10 +1,13 @@
 from copick.impl.filesystem import CopickRootFSSpec
+from copick.models import CopickPoint, CopickLocation
+import copick
 import numpy as np
 import mrcfile
 import zarr
 import pandas as pd
 import starfile
 import json
+import os
 
 def load_mrc(filename):
     """ 
@@ -82,7 +85,10 @@ def make_starfile(d_coords: dict, out_file: str, coords_scale: float=1):
     rln_df = pd.DataFrame.from_dict(rln)
     starfile.write(rln_df, out_file)
 
-def read_starfile(in_star: str, col_name: str = "rlnTomoName", coords_scale: float=1) -> dict:
+def read_starfile(in_star: str,
+                  col_name: str="rlnTomoName",
+                  coords_scale: float=1,
+                  extra_col_name: str=None) -> dict:
     """
     Extract tomogram-associated coordinates from a starfile.
     
@@ -90,7 +96,8 @@ def read_starfile(in_star: str, col_name: str = "rlnTomoName", coords_scale: flo
     ----------
     in_star: Relion-4 style starfile
     col_name: column name for the tomograms
-    coords_scale: float, multiplicative factor to apply to coordinates 
+    coords_scale: multiplicative factor to apply to coordinates 
+    extra_col_name: column to extract and save as 4th column
 
     Returns
     -------
@@ -107,6 +114,9 @@ def read_starfile(in_star: str, col_name: str = "rlnTomoName", coords_scale: flo
         d_coords[tomo] = np.array([particles.rlnCoordinateX.iloc[tomo_indices],
                                    particles.rlnCoordinateY.iloc[tomo_indices],
                                    particles.rlnCoordinateZ.iloc[tomo_indices]]).T * coords_scale
+        if extra_col_name is not None:
+            d_coords[tomo] = np.hstack((d_coords[tomo],
+                                        particles[extra_col_name].iloc[tomo_indices].values[:,np.newaxis]))
     return d_coords
 
 def read_copick_json(fname: str) -> np.ndarray:
@@ -139,7 +149,7 @@ class CoPickWrangler:
         """
         self.root = CopickRootFSSpec.from_file(config)
 
-    def get_run_coords(self, run_name: str, particle_name: str, session_id: str) -> np.ndarray:
+    def get_run_coords(self, run_name: str, particle_name: str, session_id: str, user_id: str) -> np.ndarray:
         """
         Extract coordinates for a partciular run.
 
@@ -153,7 +163,7 @@ class CoPickWrangler:
         -------
         np.array, shape (n_coords, 3) of coordinates in Angstrom
         """
-        pick = self.root.get_run(run_name).get_picks(particle_name, session_id=session_id)
+        pick = self.root.get_run(run_name).get_picks(particle_name, session_id=session_id, user_id=user_id)
         if len(pick) == 0:
             print(f"Picks json file may be missing for run: {run_name}")
             return np.empty(0)
@@ -190,7 +200,7 @@ class CoPickWrangler:
         """
         return [run.name for run in self.root.runs]
 
-    def get_all_coords(self, particle_name: str, session_id: str) -> dict:
+    def get_all_coords(self, particle_name: str, session_id: str, user_id: str) -> dict:
         """
         Extract all coordinates for a particle across a dataset.
 
@@ -206,7 +216,42 @@ class CoPickWrangler:
         runs = self.get_run_names()
         d_coords = {}
         for run in runs:
-            coords = self.get_run_coords(run, particle_name, session_id)
+            coords = self.get_run_coords(run, particle_name, session_id, user_id)
             if len(coords) > 0:
                 d_coords[run] = coords
         return d_coords
+
+def coords_to_copick(root: copick.models.CopickRoot,
+                     d_coords: dict, 
+                     particle_name: str, 
+                     session_id: str, 
+                     user_id: str):
+    """
+    Convert a set of coordinates to copick format.
+    
+    Parameters
+    ----------
+    root: copick.impl.filesystem.CopickRootFSSpec object
+    d_coords: dict, run_names mapped to coordinates
+    particle_name: str, copick name of particle
+    session_id: str, session id
+    user_id: str, user id 
+    """
+    for run_name in d_coords.keys():
+        pts = []
+        coords = d_coords[run_name]
+        for sc in coords:
+            if coords.shape[1] == 3:
+                pts.append(CopickPoint(location=CopickLocation(x=sc[0], y=sc[1], z=sc[2])))
+            else:
+                pts.append(CopickPoint(location=CopickLocation(x=sc[0], y=sc[1], z=sc[2]), score=sc[3]))
+        
+        run = root.get_run(run_name)
+        if run is None:
+            run = root.new_run(run_name)
+            
+        new_picks = run.new_picks(object_name=particle_name,
+                                  session_id=session_id,
+                                  user_id=user_id)
+        new_picks.points = pts
+        new_picks.store() 
