@@ -7,6 +7,7 @@ import starfile
 import re
 import os
 from dataio import *
+from stacker import normalize_particle_stack
 
 class Minislab:
     
@@ -198,6 +199,45 @@ class Minislab:
                            'col': self.col_idx})
         df.to_csv(os.path.join(outdir, f"particle_map.csv"), index=False)
 
+    def make_stacks(self,
+                    apix: float,
+                    outdir: str, 
+                    normalize: bool = True,
+                    invert: bool = True,
+                    radius: float = 0.9):
+        """
+        Generate particle stacks from the minislabs, optionally normalizing
+        and inverting the contrast. 
+        
+        Parameters
+        ----------
+        apix: float, pixel size in Angstrom   
+        outdir: str, output directory 
+        normalize: bool, normalize stacks
+        invert: bool, invert contrast
+        radius: float, fractional tile radius for normalization
+        """
+        if len(self.minislabs)==0:
+            raise Exception("No slabs have been generated.")
+        os.makedirs(outdir, exist_ok=True)
+            
+        pshape = self.minislabs[0].shape
+        stack = np.zeros((len(self.minislabs), 
+                          pshape[0], 
+                          pshape[1])).astype(np.float32)
+        for i in range(len(self.minislabs)):
+            stack[i] = self.minislabs[i]
+        
+        if normalize:
+            normalize_particle_stack(stack, 
+                                     radius=radius,
+                                     invert=invert)
+        
+        save_mrc(stack, os.path.join(outdir, f"particles.mrcs"), apix=apix)
+        df = pd.DataFrame({'tomogram': self.tomo_names,
+                           'particle': self.pick_indices})
+        df.to_csv(os.path.join(outdir, f"particle_map.csv"), index=False)
+        
 def generate_from_copick(config: str,
                          out_dir: str,
                          particle_name: str,
@@ -243,25 +283,32 @@ def generate_from_starfile(vol_path: str,
                            coords_scale: float = 1,
                            voxel_spacing: float = None,
                            tomo_type: str = None,
+                           as_stack: bool = False,
                            gallery_shape: tuple = (16,15),
-                           one_per_vol: bool = False):
+                           one_per_vol: bool = False,
+                           normalize: bool = True,
+                           invert: bool = True,
+                           radius: float = 0.9):
     """
-    Generate galleries based on coordinates in a starfile,
-    with the volumes loaded either indirectly through copick
-    or directly from a directory containing mrc files. The
-    coordinates scale factor should put the coordinates into A.
+    Generate galleries or stacks based on coordinates in a starfile,
+    with the volumes loaded either through copick or from a directory 
+    containing mrc files. Coordinates should be scaled to Angstroms.
 
     Parameters
     ----------
     vol_path: copick configuration file or directory of mrc files
     in_star: starfile of particle coordinates
-    out_dir: directory to write galleries and bookkeeping file to
+    out_dir: output directory for mrc(s) and bookkeeping file
     extract_shape: subvolume extraction shape in Angstrom
     coords_scale: multiplicative factor to apply to coordinates
     voxel_spacing: voxel spacing in Angstrom
     tomo_type: type of tomogram, e.g. 'denoised'
+    as_stack: generate particle stacks if True, else as galleries
     gallery_shape: number of particles along gallery (row,col)
     one_per_vol: generate one gallery per tomogram
+    normalize: normalize particle stack
+    invert: invert contrast
+    radius: fractional radius for normalization purposes
     """
     coords = read_starfile(in_star, coords_scale=coords_scale)
     extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
@@ -286,4 +333,8 @@ def generate_from_starfile(vol_path: str,
             raise NotImplementedError
         coords_pixels = coords[run_name]/voxel_spacing
         montage.generate_slabs(volume, coords_pixels, run_name)
-    montage.make_galleries(gallery_shape, voxel_spacing, out_dir, one_per_vol)
+
+    if not as_stack:
+        montage.make_galleries(gallery_shape, voxel_spacing, out_dir, one_per_vol)
+    else:
+        montage.make_stacks(voxel_spacing, out_dir, normalize, invert, radius)
