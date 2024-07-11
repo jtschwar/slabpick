@@ -9,7 +9,7 @@ import starfile
 import json
 import os
 
-def load_mrc(filename):
+def load_mrc(filename: str) -> np.ndarray:
     """ 
     Load the data in an mrc file into a numpy array. 
 
@@ -24,7 +24,10 @@ def load_mrc(filename):
     with mrcfile.open(filename, "r", permissive=True) as mrc:
         return mrc.data
 
-def save_mrc(data, filename, overwrite=True, apix=None):
+def save_mrc(data: np.ndarray,
+             filename: str,
+             overwrite: bool=True,
+             apix: float=None):
     """ 
     Save a numpy array to mrc format. 
 
@@ -42,7 +45,8 @@ def save_mrc(data, filename, overwrite=True, apix=None):
         if apix:
             mrc.voxel_size = apix
 
-def get_voxel_size(filename, isotropic=True):
+def get_voxel_size(filename: str,
+                   isotropic: bool=True) -> float:
     """ 
     Extract voxel size from mrc file.
     
@@ -68,15 +72,17 @@ def make_starfile(d_coords: dict, out_file: str, coords_scale: float=1):
     
     Parameters
     ----------
-    d_coords: dict, tomogram name: particle XYZ coordinates
-    out_file: str, output star file to write
-    coords_scale: float, multiplicative factor to apply to coordinates
+    d_coords: tomogram mapped to coordinates and optional score column
+    out_file: output star file to write
+    coords_scale: multiplicative factor to apply to coordinates
     """
     rln = {}
     rln['rlnTomoName'] = np.concatenate([d_coords[tomo].shape[0]*[tomo] for tomo in d_coords.keys()]).ravel()
     rln['rlnCoordinateX'] = np.concatenate([d_coords[tomo][:,0] for tomo in d_coords.keys()]).ravel() * coords_scale
     rln['rlnCoordinateY'] = np.concatenate([d_coords[tomo][:,1] for tomo in d_coords.keys()]).ravel() * coords_scale
     rln['rlnCoordinateZ'] = np.concatenate([d_coords[tomo][:,2] for tomo in d_coords.keys()]).ravel() * coords_scale
+    if np.all(np.array([d_coords[tomo].shape[1] for tomo in d_coords.keys()])==4):
+        rln['rlnScore'] = np.concatenate([d_coords[tomo][:,3] for tomo in d_coords.keys()]).ravel()
     for key in ['rlnAngleRot', 'rlnAngleTilt', 'rlnAnglePsi']:
         rln[key] = np.zeros(len(rln['rlnCoordinateX']))
     rln['rlnTomoManifoldIndex'] = np.ones(len(rln['rlnCoordinateX'])).astype(int)
@@ -119,6 +125,39 @@ def read_starfile(in_star: str,
                                         particles[extra_col_name].iloc[tomo_indices].values[:,np.newaxis]))
     return d_coords
 
+def combine_star_files(in_star: list, 
+                       col_name: str='rlnTomoName', 
+                       coords_scale: float=1) -> dict:
+    """
+    Combine multiple star files into a single dictionary
+    of coordinates associated with tomograms.
+    
+    Parameters
+    ----------
+    in_star: list of star files to merge
+    col_name: tomogram column name
+    coords_scale: multiplicative factor to apply to coordinates
+    
+    Returns
+    -------
+    d_coords: tomogram mapped to particle coordinates
+    """
+    d_coords_list = [read_starfile(star_path, 
+                                   col_name=col_name, 
+                                   coords_scale=coords_scale) for star_path in in_star]
+    d_coords = {}
+    for d in d_coords_list:
+        for k, v in d.items(): 
+            d_coords.setdefault(k, []).append(v)
+            
+    d_coords = {key:d_coords[key] for key in d_coords}
+    for key in d_coords.keys():
+        if len(d_coords[key]) > 1:
+            print(f"Warning! {key} spanned multiple star files")
+        d_coords[key] = np.vstack(d_coords[key])
+        
+    return d_coords
+
 def read_copick_json(fname: str) -> np.ndarray:
     """
     Read coordinates from an individual copick-formatted json file.
@@ -157,7 +196,8 @@ class CoPickWrangler:
         ----------
         run_name: str, name of run 
         particle_name: str, name of particle
-        session_id: str, name of session   
+        session_id: str, name of session
+        user_id: str, name of user
 
         Returns
         -------
@@ -208,6 +248,7 @@ class CoPickWrangler:
         ----------
         particle_name: str, name of particle   
         session_id: str, name of session
+        user_id: str, name of user
 
         Returns
         -------
