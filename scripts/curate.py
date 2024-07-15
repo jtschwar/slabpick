@@ -10,6 +10,7 @@ sys.path.append(src_dir)
 from dataio import CoPickWrangler
 from dataio import make_starfile
 from dataio import read_starfile
+from dataio import combine_star_files
 from csedit import curate_particles_map
 from minislab import Minislab
 
@@ -21,6 +22,10 @@ def parse_args():
                         help="Copick json file")
     parser.add_argument("--in_star", type=str, required=False,
                         help="Starfile containing coordinates associated with map_file")
+    parser.add_argument("--in_star_multiple", type=str, required=False, nargs="+",
+                        help="List of starfiles containing coordinates associated with map_file")
+    parser.add_argument("--col_name", type=str, required=False, default='rlnTomoName',
+                        help="Tomogram column name in starfile(s)")
     parser.add_argument("--cs_file", type=str, required=True,
                         help="Cryosparc extraction job, e.g. topaz_picked_particles.cs")
     parser.add_argument("--map_file", type=str, required=True,
@@ -42,7 +47,13 @@ def main(config):
 
     # extract all particle coordinates
     if config.in_star:
-        d_coords = read_starfile(config.in_star, coords_scale=config.apix)
+        d_coords = read_starfile(config.in_star,
+                                 coords_scale=config.apix,
+                                 col_name=config.col_name)
+    elif config.in_star_multiple:
+        d_coords = combine_star_files(config.in_star_multiple,
+                                      coords_scale=config.apix,
+                                      col_name=config.col_name)
     elif config.copick_json:
         cp_interface = CoPickWrangler(config.copick_json)
         d_coords = cp_interface.get_all_coords(config.particle_name, config.session_id)
