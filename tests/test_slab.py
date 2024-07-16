@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 import shutil
 import sys
 import os
@@ -7,6 +8,8 @@ src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../src'))
 sys.path.append(src_dir)
 from slab import determine_bounds
 from slab import Slab
+from dataio import save_mrc
+from dataio import load_mrc
 
 def test_determine_bounds():
     """
@@ -20,8 +23,9 @@ def test_determine_bounds():
     assert len(set(np.diff(indices))) < 2 # check same interval between items
     
 class TestSlab:
-  
-    def __init__(self):
+
+    @pytest.fixture(autouse=True)
+    def setup_class(self):
         self.test_dir = "slab_test"
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
