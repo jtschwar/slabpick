@@ -4,8 +4,12 @@ from scipy.ndimage import gaussian_filter
 import pandas as pd
 import numpy as np
 import starfile
+import glob
 import re
 import os
+import time
+import datetime
+from typing import Union
 from dataio import *
 from stacker import normalize_particle_stack
 
@@ -237,7 +241,7 @@ class Minislab:
         df = pd.DataFrame({'tomogram': self.tomo_names,
                            'particle': self.pick_indices})
         df.to_csv(os.path.join(outdir, f"particle_map.csv"), index=False)
-        
+
 def generate_from_copick(config: str,
                          out_dir: str,
                          particle_name: str,
@@ -277,11 +281,12 @@ def generate_from_copick(config: str,
     montage.make_galleries(gallery_shape, voxel_spacing, out_dir, one_per_vol)
 
 def generate_from_starfile(vol_path: str,
-                           in_star: str,
+                           in_star: Union[str,list],
                            out_dir: str,
                            extract_shape: tuple,
+                           voxel_spacing: float,
                            coords_scale: float = 1,
-                           voxel_spacing: float = None,
+                           col_name: str = "rlnTomoName",
                            tomo_type: str = None,
                            as_stack: bool = False,
                            gallery_shape: tuple = (16,15),
@@ -300,8 +305,9 @@ def generate_from_starfile(vol_path: str,
     in_star: starfile of particle coordinates
     out_dir: output directory for mrc(s) and bookkeeping file
     extract_shape: subvolume extraction shape in Angstrom
-    coords_scale: multiplicative factor to apply to coordinates
-    voxel_spacing: voxel spacing in Angstrom
+    voxel_spacing: voxel spacing in Angstrom of tomograms
+    coords_scale: factor to apply to coordinates and/or to store in stack starfile
+    col_name: tomogram column label in starfile(s)
     tomo_type: type of tomogram, e.g. 'denoised'
     as_stack: generate particle stacks if True, else as galleries
     gallery_shape: number of particles along gallery (row,col)
@@ -310,7 +316,13 @@ def generate_from_starfile(vol_path: str,
     invert: invert contrast
     radius: fractional radius for normalization purposes
     """
-    coords = read_starfile(in_star, coords_scale=coords_scale)
+    if isinstance(in_star, str):
+        coords = read_starfile(in_star, coords_scale=coords_scale, col_name=col_name)
+    elif isinstance(in_star, list):
+        coords = combine_star_files(in_star, coords_scale=coords_scale, col_name=col_name)
+    else:
+        raise ValueError(f"invalid in_star argument")
+
     extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
     odd_dims = np.where(extract_shape%2)[0]
     if len(odd_dims) > 0:
@@ -330,7 +342,8 @@ def generate_from_starfile(vol_path: str,
         if load_method == 'copick':
             volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
         if load_method == 'mrc':
-            raise NotImplementedError
+            vol_name = os.path.join(vol_path, f"{run_name}.mrc")
+            volume = load_mrc(vol_name)
         coords_pixels = coords[run_name]/voxel_spacing
         montage.generate_slabs(volume, coords_pixels, run_name)
 
@@ -338,3 +351,114 @@ def generate_from_starfile(vol_path: str,
         montage.make_galleries(gallery_shape, voxel_spacing, out_dir, one_per_vol)
     else:
         montage.make_stacks(voxel_spacing, out_dir, normalize, invert, radius)
+        make_stack_starfile(os.path.join(out_dir, f"particles.mrcs"),
+                            os.path.join(out_dir, f"particles.star"),
+                            apix=coords_scale)
+
+def generate_from_starfile_live(vol_path: str,
+                                in_star: str,
+                                out_dir: str,
+                                extract_shape: tuple,
+                                voxel_spacing: float,
+                                coords_scale: float = 1,
+                                col_name: str = "rlnMicrographName",
+                                tomo_type: str = None,
+                                as_gallery: bool = True,
+                                as_stack: bool = False,
+                                gallery_shape: tuple = (16,15),
+                                one_per_vol: bool = False,
+                                normalize: bool = True,
+                                invert: bool = True,
+                                radius: float = 0.9,
+                                t_interval: float = 300,
+                                t_exit: float = 1800):
+    """
+    Live version of the generate_from_starfile function.
+    
+    Generate galleries or stacks based on coordinates in a starfile,
+    with the volumes loaded either through copick or from a directory 
+    containing mrc files. Coordinates should be scaled to Angstroms.
+
+    Parameters
+    ----------
+    vol_path: copick configuration file or directory of mrc files
+    in_star: starfile of particle coordinates
+    out_dir: output directory for mrc(s) and bookkeeping file
+    extract_shape: subvolume extraction shape in Angstrom
+    voxel_spacing: voxel spacing in Angstrom of tomograms
+    coords_scale: factor to apply to coordinates and/or to store in stack starfile
+    col_name: tomogram column label in starfile(s)
+    tomo_type: type of tomogram, e.g. 'denoised'
+    as_gallery: output minislabs as galleries
+    as_stack: output minislabs as particle stacks
+    gallery_shape: number of particles along gallery (row,col)
+    one_per_vol: generate one gallery per tomogram
+    normalize: normalize particle stack
+    invert: invert contrast
+    radius: fractional radius for normalization purposes
+    t_interval: interval in seconds before checking for new files
+    t_exit: interval in seconds after which to exit if no new files found
+    """
+    start_time = time.time()
+    processed = []
+
+    extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
+    odd_dims = np.where(extract_shape%2)[0]
+    if len(odd_dims) > 0:
+        extract_shape[odd_dims] -= 1
+    montage = Minislab(tuple(extract_shape))
+    
+    if os.path.isfile(vol_path):
+        cp_interface = CoPickWrangler(vol_path)
+        load_method = "copick"
+        assert voxel_spacing is not None and tomo_type is not None
+    else:
+        load_method = "mrc"
+
+    while True:
+        # detect any new files to process
+        fnames = glob.glob(in_star)
+        fnames = [fn for fn in fnames if fn not in processed]
+        print(f"{datetime.datetime.fromtimestamp(time.time())}: Found {len(fnames)} new files to process")
+
+        if len(fnames) > 0:
+            # retrieve coordinates
+            coords = combine_star_files(fnames, 
+                                        coords_scale=coords_scale, 
+                                        col_name=col_name)
+            # process each new volume
+            for run_name in coords.keys():
+                if load_method == 'copick':
+                    volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+                if load_method == 'mrc':
+                    vol_name = os.path.join(vol_path, f"{run_name}.mrc")
+                    volume = load_mrc(vol_name)
+                coords_pixels = coords[run_name]/voxel_spacing
+                montage.generate_slabs(volume, coords_pixels, run_name)
+
+            # track processed files and reset timer
+            processed.extend(fnames)
+            start_time = time.time()
+
+        # break out of loop if no new files detected within specified time
+        time.sleep(t_interval)
+        t_elapsed = time.time() - start_time 
+        if t_elapsed > t_exit:
+            break
+    print(f"Processed {len(processed)} sets of picks/tomograms.")
+
+    if as_gallery:
+        montage.make_galleries(gallery_shape,
+                               voxel_spacing,
+                               os.path.join(out_dir, "gallery") if as_stack else out_dir,
+                               one_per_vol)
+    if as_stack:
+        stack_out_dir = os.path.join(out_dir, "stack") if as_gallery else out_dir
+        montage.make_stacks(voxel_spacing,
+                            stack_out_dir,
+                            normalize,
+                            invert,
+                            radius)
+        make_stack_starfile(os.path.join(stack_out_dir, f"particles.mrcs"),
+                            os.path.join(stack_out_dir, f"particles.star"),
+                            apix=coords_scale)
