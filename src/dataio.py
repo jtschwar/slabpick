@@ -91,6 +91,54 @@ def make_starfile(d_coords: dict, out_file: str, coords_scale: float=1):
     rln_df = pd.DataFrame.from_dict(rln)
     starfile.write(rln_df, out_file)
 
+def make_stack_starfile(in_stack: str,
+                        out_star: str,
+                        apix: float,
+                        ctf_precomputed: bool=True,
+                        voltage: float=300.0,
+                        cs: float=2.7,
+                        amplitude_contrast: float=0.1):
+    """
+    Generate a Relion-compatible starfile for a particle stack.
+    
+    Parameters
+    ----------
+    in_stack: input particle stack in .mrcs format
+    out_star: output star file
+    apix: tilt-series pixel size
+    ctf_precomputed: CTF has already been corrected
+    voltage: microscope voltage
+    cs: spherical aberration coefficient
+    amplitude contrast: amplitude contrast
+    """
+    fname = os.path.basename(in_stack)
+    apix_tomo = get_voxel_size(in_stack)
+    n_particles, stack_dim, stack_dim1 = load_mrc(in_stack).shape
+    assert stack_dim == stack_dim1
+
+    grp_optics = {}
+    grp_optics['rlnVoltage'] = [voltage]
+    grp_optics['rlnSphericalAberration'] = [cs]
+    grp_optics['rlnAmplitudeContrast'] = [amplitude_contrast]
+    grp_optics['rlnTomoTiltSeriesPixelSize'] = [apix]
+    grp_optics['rlnOpticsGroup'] = [1]
+    grp_optics['rlnOpticsGroupName'] = ['optics1']
+    grp_optics['rlnCtfDataAreCtfPremultiplied'] = [1 if ctf_precomputed else 0]
+    grp_optics['rlnImageDimensionality'] = [2]
+    grp_optics['rlnImagePixelSize'] = [apix_tomo]
+    grp_optics['rlnImageSize'] = [stack_dim]
+
+    grp_particles = {}
+    grp_particles['rlnImageName'] = [f"{num}@{fname}" for num in range(n_particles)]
+    grp_particles['rlnOpticsGroup'] = n_particles*[1]
+    grp_particles['rlnGroupNumber'] = n_particles*[1]
+
+    dstack = {}
+    dstack['optics'] = pd.DataFrame.from_dict(grp_optics)
+    dstack['particles'] = pd.DataFrame.from_dict(grp_particles)
+
+    starfile.write(dstack, out_star)
+    
 def read_starfile(in_star: str,
                   col_name: str="rlnTomoName",
                   coords_scale: float=1,
