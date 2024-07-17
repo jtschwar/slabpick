@@ -1,20 +1,23 @@
+from typing import List, Optional
+
 from pydantic import BaseModel
-import json
-from typing import Any, Dict, List, Optional
-import os
+
 
 class ProcessingSoftware(BaseModel):
     name: str
     version: str
-    
+
+
 class ProcessingInput(BaseModel):
     in_coords: str
     in_vol: str
-    
+
+
 class ProcessingOutput(BaseModel):
     out_dir: str
     out_format: List[str]
-    
+
+
 class ProcessingParametersMinislab(BaseModel):
     extract_shape: List[int]
     voxel_spacing: float
@@ -29,16 +32,17 @@ class ProcessingParametersMinislab(BaseModel):
     normalize: bool
     radius: float
     invert: bool
-    
+
+
 class ProcessingMode(BaseModel):
     live: bool
     t_interval: float
     t_exit: float
-    
+
+
 class ProcessingConfigMinislab(BaseModel):
     software: ProcessingSoftware
     input: ProcessingInput
     output: ProcessingOutput
     parameters: ProcessingParametersMinislab
     mode: ProcessingMode
-    
