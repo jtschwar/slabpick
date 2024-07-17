@@ -22,7 +22,10 @@ def map_coordinates(coords1: np.ndarray, coords2: np.ndarray, threshold: float) 
 
 
 def consolidate_coordinates(
-    coords1: np.ndarray, coords2: np.ndarray, threshold: float, weights: list = None,
+    coords1: np.ndarray,
+    coords2: np.ndarray,
+    threshold: float,
+    weights: list = None,
 ) -> np.ndarray:
     """
     Consolidate two sets of coordinates, merging duplicates
@@ -51,7 +54,11 @@ def consolidate_coordinates(
 
 
 def consolidate_coordinates_sets(
-    d_coords1: dict, d_coords2: dict, threshold: float, weights: list = None, ensure_unique: bool = True,
+    d_coords1: dict,
+    d_coords2: dict,
+    threshold: float,
+    weights: list = None,
+    ensure_unique: bool = True,
 ) -> tuple[dict, dict]:
     """
     Consolidate coordinates for every run in the dataset,
@@ -81,7 +88,10 @@ def consolidate_coordinates_sets(
     for _i, tomo in enumerate(tomo_list):
         if (tomo in d_coords1) and (tomo in d_coords2):
             d_coords_merge[tomo], d_clusters[tomo] = consolidate_coordinates(
-                d_coords1[tomo], d_coords2[tomo], threshold, weights,
+                d_coords1[tomo],
+                d_coords2[tomo],
+                threshold,
+                weights,
             )
         elif tomo in d_coords1:
             d_coords_merge[tomo] = d_coords1[tomo]

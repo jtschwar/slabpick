@@ -27,7 +27,9 @@ def load_mrc(filename: str) -> np.ndarray:
         return mrc.data
 
 
-def save_mrc(data: np.ndarray, filename: str, overwrite: bool = True, apix: float = None):
+def save_mrc(
+    data: np.ndarray, filename: str, overwrite: bool = True, apix: float = None,
+):
     """
     Save a numpy array to mrc format.
 
@@ -78,12 +80,25 @@ def make_starfile(d_coords: dict, out_file: str, coords_scale: float = 1):
     coords_scale: multiplicative factor to apply to coordinates
     """
     rln = {}
-    rln["rlnTomoName"] = np.concatenate([d_coords[tomo].shape[0] * [tomo] for tomo in d_coords]).ravel()
-    rln["rlnCoordinateX"] = np.concatenate([d_coords[tomo][:, 0] for tomo in d_coords]).ravel() * coords_scale
-    rln["rlnCoordinateY"] = np.concatenate([d_coords[tomo][:, 1] for tomo in d_coords]).ravel() * coords_scale
-    rln["rlnCoordinateZ"] = np.concatenate([d_coords[tomo][:, 2] for tomo in d_coords]).ravel() * coords_scale
+    rln["rlnTomoName"] = np.concatenate(
+        [d_coords[tomo].shape[0] * [tomo] for tomo in d_coords],
+    ).ravel()
+    rln["rlnCoordinateX"] = (
+        np.concatenate([d_coords[tomo][:, 0] for tomo in d_coords]).ravel()
+        * coords_scale
+    )
+    rln["rlnCoordinateY"] = (
+        np.concatenate([d_coords[tomo][:, 1] for tomo in d_coords]).ravel()
+        * coords_scale
+    )
+    rln["rlnCoordinateZ"] = (
+        np.concatenate([d_coords[tomo][:, 2] for tomo in d_coords]).ravel()
+        * coords_scale
+    )
     if np.all(np.array([d_coords[tomo].shape[1] for tomo in d_coords]) == 4):
-        rln["rlnScore"] = np.concatenate([d_coords[tomo][:, 3] for tomo in d_coords]).ravel()
+        rln["rlnScore"] = np.concatenate(
+            [d_coords[tomo][:, 3] for tomo in d_coords],
+        ).ravel()
     for key in ["rlnAngleRot", "rlnAngleTilt", "rlnAnglePsi"]:
         rln[key] = np.zeros(len(rln["rlnCoordinateX"]))
     rln["rlnTomoManifoldIndex"] = np.ones(len(rln["rlnCoordinateX"])).astype(int)
@@ -184,12 +199,17 @@ def read_starfile(
         )
         if extra_col_name is not None:
             d_coords[tomo] = np.hstack(
-                (d_coords[tomo], particles[extra_col_name].iloc[tomo_indices].values[:, np.newaxis]),
+                (
+                    d_coords[tomo],
+                    particles[extra_col_name].iloc[tomo_indices].values[:, np.newaxis],
+                ),
             )
     return d_coords
 
 
-def combine_star_files(in_star: list, col_name: str = "rlnTomoName", coords_scale: float = 1) -> dict:
+def combine_star_files(
+    in_star: list, col_name: str = "rlnTomoName", coords_scale: float = 1,
+) -> dict:
     """
     Combine multiple star files into a single dictionary
     of coordinates associated with tomograms.
@@ -204,7 +224,10 @@ def combine_star_files(in_star: list, col_name: str = "rlnTomoName", coords_scal
     -------
     d_coords: tomogram mapped to particle coordinates
     """
-    d_coords_list = [read_starfile(star_path, col_name=col_name, coords_scale=coords_scale) for star_path in in_star]
+    d_coords_list = [
+        read_starfile(star_path, col_name=col_name, coords_scale=coords_scale)
+        for star_path in in_star
+    ]
     d_coords = {}
     for d in d_coords_list:
         for k, v in d.items():
@@ -234,7 +257,9 @@ def read_copick_json(fname: str) -> np.ndarray:
     with open(fname) as f:
         points = json.load(f)["points"]
     locs = [points[i]["location"] for i in range(len(points))]
-    return np.array([(locs[i]["x"], locs[i]["y"], locs[i]["z"]) for i in range(len(locs))])
+    return np.array(
+        [(locs[i]["x"], locs[i]["y"], locs[i]["z"]) for i in range(len(locs))],
+    )
 
 
 class CoPickWrangler:
@@ -251,7 +276,9 @@ class CoPickWrangler:
         """
         self.root = CopickRootFSSpec.from_file(config)
 
-    def get_run_coords(self, run_name: str, particle_name: str, session_id: str, user_id: str) -> np.ndarray:
+    def get_run_coords(
+        self, run_name: str, particle_name: str, session_id: str, user_id: str,
+    ) -> np.ndarray:
         """
         Extract coordinates for a partciular run.
 
@@ -266,14 +293,20 @@ class CoPickWrangler:
         -------
         np.array, shape (n_coords, 3) of coordinates in Angstrom
         """
-        pick = self.root.get_run(run_name).get_picks(particle_name, session_id=session_id, user_id=user_id)
+        pick = self.root.get_run(run_name).get_picks(
+            particle_name, session_id=session_id, user_id=user_id,
+        )
         if len(pick) == 0:
             print(f"Picks json file may be missing for run: {run_name}")
             return np.empty(0)
         pick = pick[0]
-        return np.array([(p.location.x, p.location.y, p.location.z) for p in pick.points])
+        return np.array(
+            [(p.location.x, p.location.y, p.location.z) for p in pick.points],
+        )
 
-    def get_run_tomogram(self, run_name: str, voxel_spacing: float, tomo_type: str) -> zarr.core.Array:
+    def get_run_tomogram(
+        self, run_name: str, voxel_spacing: float, tomo_type: str,
+    ) -> zarr.core.Array:
         """
         Get tomogram for a particular run.
 
@@ -288,7 +321,9 @@ class CoPickWrangler:
         array: zarr.core.Array, tomogram volume
         """
         run = self.root.get_run(run_name)
-        tomogram = run.get_voxel_spacing(voxel_spacing).get_tomogram(tomo_type=tomo_type)
+        tomogram = run.get_voxel_spacing(voxel_spacing).get_tomogram(
+            tomo_type=tomo_type,
+        )
         arrays = list(zarr.open(tomogram.zarr(), "r").arrays())
         _, array = arrays[0]  # 0 corresponds to unbinned
         return array
@@ -326,7 +361,13 @@ class CoPickWrangler:
         return d_coords
 
 
-def coords_to_copick(root: copick.models.CopickRoot, d_coords: dict, particle_name: str, session_id: str, user_id: str):
+def coords_to_copick(
+    root: copick.models.CopickRoot,
+    d_coords: dict,
+    particle_name: str,
+    session_id: str,
+    user_id: str,
+):
     """
     Convert a set of coordinates to copick format.
 
@@ -343,14 +384,22 @@ def coords_to_copick(root: copick.models.CopickRoot, d_coords: dict, particle_na
         coords = d_coords[run_name]
         for sc in coords:
             if coords.shape[1] == 3:
-                pts.append(CopickPoint(location=CopickLocation(x=sc[0], y=sc[1], z=sc[2])))
+                pts.append(
+                    CopickPoint(location=CopickLocation(x=sc[0], y=sc[1], z=sc[2])),
+                )
             else:
-                pts.append(CopickPoint(location=CopickLocation(x=sc[0], y=sc[1], z=sc[2]), score=sc[3]))
+                pts.append(
+                    CopickPoint(
+                        location=CopickLocation(x=sc[0], y=sc[1], z=sc[2]), score=sc[3],
+                    ),
+                )
 
         run = root.get_run(run_name)
         if run is None:
             run = root.new_run(run_name)
 
-        new_picks = run.new_picks(object_name=particle_name, session_id=session_id, user_id=user_id)
+        new_picks = run.new_picks(
+            object_name=particle_name, session_id=session_id, user_id=user_id,
+        )
         new_picks.points = pts
         new_picks.store()

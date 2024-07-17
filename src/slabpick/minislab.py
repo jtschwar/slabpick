@@ -8,7 +8,14 @@ import numpy as np
 import pandas as pd
 from scipy.ndimage import gaussian_filter
 
-from slabpick.dataio import CoPickWrangler, combine_star_files, load_mrc, make_stack_starfile, read_starfile, save_mrc
+from slabpick.dataio import (
+    CoPickWrangler,
+    combine_star_files,
+    load_mrc,
+    make_stack_starfile,
+    read_starfile,
+    save_mrc,
+)
 from slabpick.stacker import invert_contrast, normalize_stack
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -89,38 +96,56 @@ class Minislab:
             subvol = np.array(vol[xstart:xend, ystart:yend, zstart:zend])
 
             if np.any(np.array(subvol.shape) == 0) or np.any(c < 0):
-                print(f"Skipping entry with coordinates {coords[i]} due to out of bounds error")
+                print(
+                    f"Skipping entry with coordinates {coords[i]} due to out of bounds error",
+                )
                 continue
             projection = np.sum(subvol, axis=0)
 
             # fill any missing rows/columns if particle is along tomogram x/y edge
             if projection.shape[0] != self.shape[1]:
                 edge = projection.shape[0]
-                filler = self.generate_filler((self.shape[1] - edge, projection.shape[1]))
+                filler = self.generate_filler(
+                    (self.shape[1] - edge, projection.shape[1]),
+                )
                 if ystart == 0:
                     projection = np.vstack((filler, projection))
                     if self.shape[1] - edge > 4:
-                        projection[self.shape[1] - edge - 1 : self.shape[1] - edge + 1] = gaussian_filter(
-                            projection[self.shape[1] - edge - 2 : self.shape[1] - edge + 2],
+                        projection[
+                            self.shape[1] - edge - 1 : self.shape[1] - edge + 1
+                        ] = gaussian_filter(
+                            projection[
+                                self.shape[1] - edge - 2 : self.shape[1] - edge + 2
+                            ],
                             sigma=1.1,
-                        )[1:-1]
+                        )[
+                            1:-1
+                        ]
                 else:
                     projection = np.vstack((projection, filler))
                     if self.shape[1] - edge > 4:
-                        projection[edge - 1 : edge + 1] = gaussian_filter(projection[edge - 2 : edge + 2], sigma=1.1)[
-                            1:-1
-                        ]
+                        projection[edge - 1 : edge + 1] = gaussian_filter(
+                            projection[edge - 2 : edge + 2], sigma=1.1,
+                        )[1:-1]
 
             if projection.shape[1] != self.shape[0]:
                 edge = projection.shape[1]
-                filler = self.generate_filler((projection.shape[0], self.shape[0] - edge))
+                filler = self.generate_filler(
+                    (projection.shape[0], self.shape[0] - edge),
+                )
                 if zstart == 0:
                     projection = np.hstack((filler, projection))
                     if self.shape[0] - edge > 4:
-                        projection[:, self.shape[0] - edge - 1 : self.shape[0] - edge + 1] = gaussian_filter(
-                            projection[:, self.shape[0] - edge - 2 : self.shape[0] - edge + 2],
+                        projection[
+                            :, self.shape[0] - edge - 1 : self.shape[0] - edge + 1,
+                        ] = gaussian_filter(
+                            projection[
+                                :, self.shape[0] - edge - 2 : self.shape[0] - edge + 2,
+                            ],
                             sigma=1.1,
-                        )[:, 1:-1]
+                        )[
+                            :, 1:-1,
+                        ]
                 else:
                     projection = np.hstack((projection, filler))
                     if self.shape[0] - edge > 4:
@@ -134,7 +159,9 @@ class Minislab:
             self.pick_indices.append(i)
             self.num_particles += 1
 
-    def make_one_gallery(self, gshape: tuple[int, int], key_list: list) -> tuple[np.ndarray, list, list]:
+    def make_one_gallery(
+        self, gshape: tuple[int, int], key_list: list,
+    ) -> tuple[np.ndarray, list, list]:
         """
         Generate a single gallery from select minislabs.
 
@@ -153,7 +180,9 @@ class Minislab:
             raise IndexError("Number of minislabs exceeds number of gallery tiles.")
 
         pshape = self.minislabs[key_list[0]].shape
-        gallery = np.zeros((gshape[0] * pshape[0], gshape[1] * pshape[1])).astype(np.float32)
+        gallery = np.zeros((gshape[0] * pshape[0], gshape[1] * pshape[1])).astype(
+            np.float32,
+        )
         row_idx, col_idx = [], []
 
         counter = 0
@@ -176,7 +205,13 @@ class Minislab:
 
         return gallery, row_idx, col_idx
 
-    def make_galleries(self, gshape: tuple[int, int], apix: float, outdir: str, one_per_vol: bool = False):
+    def make_galleries(
+        self,
+        gshape: tuple[int, int],
+        apix: float,
+        outdir: str,
+        one_per_vol: bool = False,
+    ):
         """
         Generate galleries by tiling the minislabs and save the resulting projected
         particle mosaics in mrc format and a corresponding bookkeeping file as csv.
@@ -200,14 +235,20 @@ class Minislab:
 
         for nm in range(n_mgraphs):
             if one_per_vol:
-                key_list = list(np.where(np.array(self.tomo_names) == unique_names[nm])[0])
+                key_list = list(
+                    np.where(np.array(self.tomo_names) == unique_names[nm])[0],
+                )
                 filename = unique_names[nm]
             else:
-                end_key = np.min([np.prod(gshape) * (nm + 1), max(list(self.minislabs.keys())) + 1])
+                end_key = np.min(
+                    [np.prod(gshape) * (nm + 1), max(list(self.minislabs.keys())) + 1],
+                )
                 key_list = list(np.arange(nm * np.prod(gshape), end_key).astype(int))
                 filename = "particles"
             gallery, row_idx, col_idx = self.make_one_gallery(gshape, key_list)
-            save_mrc(gallery, os.path.join(outdir, f"{filename}_{nm:03d}.mrc"), apix=apix)
+            save_mrc(
+                gallery, os.path.join(outdir, f"{filename}_{nm:03d}.mrc"), apix=apix,
+            )
             self.row_idx.extend(row_idx)
             self.col_idx.extend(col_idx)
             self.gallery_idx.extend(len(row_idx) * [nm])
@@ -224,7 +265,14 @@ class Minislab:
         )
         df.to_csv(os.path.join(outdir, "particle_map.csv"), index=False)
 
-    def make_stacks(self, apix: float, outdir: str, normalize: bool = True, invert: bool = True, radius: float = 0.9):
+    def make_stacks(
+        self,
+        apix: float,
+        outdir: str,
+        normalize: bool = True,
+        invert: bool = True,
+        radius: float = 0.9,
+    ):
         """
         Generate particle stacks from the minislabs, optionally normalizing
         and inverting the contrast.
@@ -332,9 +380,13 @@ def make_particle_projections(
                 cp_interface = CoPickWrangler(in_coords)
                 coords = cp_interface.get_all_coords(particle_name, session_id, user_id)
             elif len(fnames) == 1 and os.path.splitext(in_coords)[-1] == ".star":
-                coords = read_starfile(fnames[0], coords_scale=coords_scale, col_name=col_name)
+                coords = read_starfile(
+                    fnames[0], coords_scale=coords_scale, col_name=col_name,
+                )
             else:
-                coords = combine_star_files(fnames, coords_scale=coords_scale, col_name=col_name)
+                coords = combine_star_files(
+                    fnames, coords_scale=coords_scale, col_name=col_name,
+                )
 
             # handle different volume entrypoints
             if os.path.isfile(in_vol):
@@ -346,7 +398,9 @@ def make_particle_projections(
             # generate particle projections from each run
             for run_name in coords:
                 if load_method == "copick":
-                    volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+                    volume = cp_interface.get_run_tomogram(
+                        run_name, voxel_spacing, tomo_type,
+                    )
                 if load_method == "mrc":
                     vol_name = os.path.join(in_vol, f"{run_name}.mrc")
                     volume = load_mrc(vol_name)
@@ -366,10 +420,18 @@ def make_particle_projections(
     # generate galleries and/or a particle stack
     if as_gallery:
         gallery_out_dir = os.path.join(out_dir, "gallery") if as_gallery else out_dir
-        montage.make_galleries(gallery_shape, voxel_spacing, gallery_out_dir, one_per_vol)
+        montage.make_galleries(
+            gallery_shape, voxel_spacing, gallery_out_dir, one_per_vol,
+        )
     if as_stack:
         stack_out_dir = os.path.join(out_dir, "stack") if as_gallery else out_dir
-        montage.make_stacks(voxel_spacing, stack_out_dir, normalize=normalize, invert=invert, radius=radius)
+        montage.make_stacks(
+            voxel_spacing,
+            stack_out_dir,
+            normalize=normalize,
+            invert=invert,
+            radius=radius,
+        )
         make_stack_starfile(
             os.path.join(stack_out_dir, "particles.mrcs"),
             os.path.join(stack_out_dir, "particles.star"),
@@ -492,12 +554,18 @@ def generate_from_starfile(
 
         if len(fnames) > 0:
             if len(fnames) == 1:
-                coords = read_starfile(fnames[0], coords_scale=coords_scale, col_name=col_name)
+                coords = read_starfile(
+                    fnames[0], coords_scale=coords_scale, col_name=col_name,
+                )
             else:
-                coords = combine_star_files(fnames, coords_scale=coords_scale, col_name=col_name)
+                coords = combine_star_files(
+                    fnames, coords_scale=coords_scale, col_name=col_name,
+                )
             for run_name in coords:
                 if load_method == "copick":
-                    volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+                    volume = cp_interface.get_run_tomogram(
+                        run_name, voxel_spacing, tomo_type,
+                    )
                 if load_method == "mrc":
                     vol_name = os.path.join(in_vol, f"{run_name}.mrc")
                     volume = load_mrc(vol_name)
@@ -515,7 +583,9 @@ def generate_from_starfile(
 
     if as_gallery:
         gallery_out_dir = os.path.join(out_dir, "gallery") if as_gallery else out_dir
-        montage.make_galleries(gallery_shape, voxel_spacing, gallery_out_dir, one_per_vol)
+        montage.make_galleries(
+            gallery_shape, voxel_spacing, gallery_out_dir, one_per_vol,
+        )
     if as_stack:
         stack_out_dir = os.path.join(out_dir, "stack") if as_gallery else out_dir
         montage.make_stacks(voxel_spacing, stack_out_dir, normalize, invert, radius)
@@ -567,7 +637,9 @@ def old_generate_from_starfile(
     if isinstance(in_star, str):
         coords = read_starfile(in_star, coords_scale=coords_scale, col_name=col_name)
     elif isinstance(in_star, list):
-        coords = combine_star_files(in_star, coords_scale=coords_scale, col_name=col_name)
+        coords = combine_star_files(
+            in_star, coords_scale=coords_scale, col_name=col_name,
+        )
     else:
         raise ValueError("invalid in_star argument")
 

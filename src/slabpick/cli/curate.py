@@ -3,12 +3,8 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 
-from slabpick.csedit import curate_particles_map
-from slabpick.csedit import curate_particles_map_iterative
-from slabpick.dataio import CoPickWrangler
-from slabpick.dataio import combine_star_files
-from slabpick.dataio import make_starfile
-from slabpick.dataio import read_starfile
+from slabpick.csedit import curate_particles_map, curate_particles_map_iterative
+from slabpick.dataio import CoPickWrangler, combine_star_files, make_starfile, read_starfile
 
 
 def parse_args():
@@ -16,7 +12,10 @@ def parse_args():
     parser = ArgumentParser(description="Generate starfile based on cryosparc-curated picks.")
     parser.add_argument("--copick_json", type=str, required=False, help="Copick json file")
     parser.add_argument(
-        "--in_star", type=str, required=False, help="Starfile containing coordinates associated with map_file",
+        "--in_star",
+        type=str,
+        required=False,
+        help="Starfile containing coordinates associated with map_file",
     )
     parser.add_argument(
         "--in_star_multiple",
@@ -26,13 +25,23 @@ def parse_args():
         help="List of starfiles containing coordinates associated with map_file",
     )
     parser.add_argument(
-        "--col_name", type=str, required=False, default="rlnTomoName", help="Tomogram column name in starfile(s)",
+        "--col_name",
+        type=str,
+        required=False,
+        default="rlnTomoName",
+        help="Tomogram column name in starfile(s)",
     )
     parser.add_argument(
-        "--cs_file", type=str, required=True, help="Cryosparc extraction job, e.g. topaz_picked_particles.cs",
+        "--cs_file",
+        type=str,
+        required=True,
+        help="Cryosparc extraction job, e.g. topaz_picked_particles.cs",
     )
     parser.add_argument(
-        "--map_file", type=str, required=True, help="Bookkeeping file mapping particles to gallery tiles",
+        "--map_file",
+        type=str,
+        required=True,
+        help="Bookkeeping file mapping particles to gallery tiles",
     )
     parser.add_argument(
         "--particle_name",
@@ -41,12 +50,17 @@ def parse_args():
         help="Copick particle name, required if using copick for coordinates",
     )
     parser.add_argument(
-        "--session_id", type=str, required=False, help="Copick session ID, required if using copick for coordinates",
+        "--session_id",
+        type=str,
+        required=False,
+        help="Copick session ID, required if using copick for coordinates",
     )
     parser.add_argument("--out_file", type=str, required=True, help="Output starfile")
     parser.add_argument("--apix", type=float, required=True, help="Tilt-series pixel size (usually unbinned)")
     parser.add_argument(
-        "--rejected_set", action="store_true", help="Extract coordinates of the rejected particles in the star file",
+        "--rejected_set",
+        action="store_true",
+        help="Extract coordinates of the rejected particles in the star file",
     )
 
     return parser.parse_args()

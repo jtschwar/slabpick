@@ -13,7 +13,10 @@ def parse_args():
     parser.add_argument("--in_star2", type=str, required=True, help="Starfile containing second set of coordinates")
     parser.add_argument("--out_star", type=str, required=True, help="Output starfile for merged coordinates")
     parser.add_argument(
-        "--threshold", type=float, required=True, help="Distance threshold for considering coordinates replicates",
+        "--threshold",
+        type=float,
+        required=True,
+        help="Distance threshold for considering coordinates replicates",
     )
     parser.add_argument(
         "--coords_scale",
@@ -44,7 +47,10 @@ def parse_args():
         help="Subvolume extraction shape for generating minislabs",
     )
     parser.add_argument(
-        "--out_visuals", type=str, required=False, help="Output directory for visualizing pairs of coordinates",
+        "--out_visuals",
+        type=str,
+        required=False,
+        help="Output directory for visualizing pairs of coordinates",
     )
 
     return parser.parse_args()
