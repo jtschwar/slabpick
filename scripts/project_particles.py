@@ -6,6 +6,7 @@ import sys
 src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../src'))
 sys.path.append(src_dir)
 from minislab import make_particle_projections
+from settings import ProcessingConfigMinislab
 
 def parse_args():
     """ Parser for command line arguments.
@@ -61,10 +62,32 @@ def parse_args():
     
     return parser.parse_args()
 
+def generate_config(config):
+    """
+    Store command line arguments in a json file.
+    """
+    d_config = vars(config)
+    
+    reconfig = {}
+    reconfig['software'] = {'name': 'slabpick', 'version':'0.1.0'}
+    reconfig['input'] = {k: d_config[k] for k in ('in_coords','in_vol')}
+    reconfig['output'] = {k: d_config[k] for k in ('out_dir','out_format')}
+    reconfig['mode'] = {k: d_config[k] for k in ('live','t_interval', 't_exit')}
+
+    used_keys = [list(reconfig[key].keys()) for key in reconfig.keys()]
+    used_keys = [p for param in used_keys for p in param]
+    param_keys = [key for key in d_config.keys() if key not in used_keys]
+    reconfig['parameters'] = {k: d_config[k] for k in param_keys}
+    
+    reconfig = ProcessingConfigMinislab(**reconfig)
+    
+    os.makedirs(config.out_dir, exist_ok=True)
+    with open(os.path.join(config.out_dir, "config.json"), "w") as f:
+        f.write(reconfig.model_dump_json(indent=4))
+
 def main(config):
     
-    #generate_config(config)
-    print(config)
+    generate_config(config)
     
     as_stack = True if 'stack' in config.out_format else False
     as_gallery = True if 'gallery' in config.out_format else False
