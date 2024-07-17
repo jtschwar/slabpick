@@ -55,9 +55,9 @@ project_particles = "slabpick.cli.project_particles:main"
 #source = "slabpick/__init__.py"
 #fallback-version = "0.3.0"
 
-[tool.black]
-line-length = 120
-target_version = ['py311']
+#[tool.black]
+#line-length = 120
+#target_version = ['py311']
 
 [tool.ruff]
 select = [
@@ -89,7 +89,7 @@ ignore = [
     "DTZ007", # Datetime objects without timezones.
     "DTZ005", # More datetimes without timezones.
     "SIM102", # Nested if statements
-    "F821": # Undefined name 
+    "F821", # Undefined name
 ]
 line-length = 120
 target-version = "py311"

@@ -145,7 +145,10 @@ def make_stack_starfile(
 
 
 def read_starfile(
-    in_star: str, col_name: str = "rlnTomoName", coords_scale: float = 1, extra_col_name: str = None,
+    in_star: str,
+    col_name: str = "rlnTomoName",
+    coords_scale: float = 1,
+    extra_col_name: str = None,
 ) -> dict:
     """
     Extract tomogram-associated coordinates from a starfile.

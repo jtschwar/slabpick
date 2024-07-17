@@ -1,23 +1,18 @@
-import warnings
 import glob
 import os
 import time
+import warnings
 from typing import Union
 
 import numpy as np
 import pandas as pd
 from scipy.ndimage import gaussian_filter
 
-from slabpick.dataio import load_mrc
-from slabpick.dataio import save_mrc
-from slabpick.dataio import make_stack_starfile
-from slabpick.dataio import read_starfile
-from slabpick.dataio import combine_star_files
-from slabpick.dataio import CoPickWrangler
-from slabpick.stacker import normalize_stack
-from slabpick.stacker import invert_contrast
+from slabpick.dataio import CoPickWrangler, combine_star_files, load_mrc, make_stack_starfile, read_starfile, save_mrc
+from slabpick.stacker import invert_contrast, normalize_stack
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
+
 
 class Minislab:
 
@@ -59,7 +54,9 @@ class Minislab:
         np.array of filler region
         """
         filler = self.shape[2] * np.random.normal(
-            loc=np.mean(np.array(self.vol_means)), scale=np.mean(np.array(self.vol_stds)), size=fill_shape,
+            loc=np.mean(np.array(self.vol_means)),
+            scale=np.mean(np.array(self.vol_stds)),
+            size=fill_shape,
         )
         return gaussian_filter(filler, sigma=sigma)
 
@@ -104,7 +101,8 @@ class Minislab:
                     projection = np.vstack((filler, projection))
                     if self.shape[1] - edge > 4:
                         projection[self.shape[1] - edge - 1 : self.shape[1] - edge + 1] = gaussian_filter(
-                            projection[self.shape[1] - edge - 2 : self.shape[1] - edge + 2], sigma=1.1,
+                            projection[self.shape[1] - edge - 2 : self.shape[1] - edge + 2],
+                            sigma=1.1,
                         )[1:-1]
                 else:
                     projection = np.vstack((projection, filler))
@@ -120,13 +118,15 @@ class Minislab:
                     projection = np.hstack((filler, projection))
                     if self.shape[0] - edge > 4:
                         projection[:, self.shape[0] - edge - 1 : self.shape[0] - edge + 1] = gaussian_filter(
-                            projection[:, self.shape[0] - edge - 2 : self.shape[0] - edge + 2], sigma=1.1,
+                            projection[:, self.shape[0] - edge - 2 : self.shape[0] - edge + 2],
+                            sigma=1.1,
                         )[:, 1:-1]
                 else:
                     projection = np.hstack((projection, filler))
                     if self.shape[0] - edge > 4:
                         projection[:, edge - 1 : edge + 1] = gaussian_filter(
-                            projection[:, edge - 2 : edge + 2], sigma=1.1,
+                            projection[:, edge - 2 : edge + 2],
+                            sigma=1.1,
                         )[:, 1:-1]
 
             self.minislabs[self.num_particles] = projection
@@ -162,11 +162,13 @@ class Minislab:
                 if counter > len(key_list) - 1:
                     filler = self.generate_filler((pshape[0], pshape[1]))
                     gallery[
-                        i * pshape[0] : i * pshape[0] + pshape[0], j * pshape[1] : j * pshape[1] + pshape[1],
+                        i * pshape[0] : i * pshape[0] + pshape[0],
+                        j * pshape[1] : j * pshape[1] + pshape[1],
                     ] = filler
                 else:
                     gallery[
-                        i * pshape[0] : i * pshape[0] + pshape[0], j * pshape[1] : j * pshape[1] + pshape[1],
+                        i * pshape[0] : i * pshape[0] + pshape[0],
+                        j * pshape[1] : j * pshape[1] + pshape[1],
                     ] = self.minislabs[key_list[counter]]
                     row_idx.append(i)
                     col_idx.append(j)
@@ -322,7 +324,7 @@ def make_particle_projections(
     while True:
         fnames = glob.glob(in_coords)
         fnames = [fn for fn in fnames if fn not in processed]
-        print(time.strftime('%X %x %Z'), ": Found {len(fnames)} new files to process")
+        print(time.strftime("%X %x %Z"), f": Found {len(fnames)} new files to process")
 
         if len(fnames) > 0:
             # handle different coordinate entrypoints
@@ -330,7 +332,6 @@ def make_particle_projections(
                 cp_interface = CoPickWrangler(in_coords)
                 coords = cp_interface.get_all_coords(particle_name, session_id, user_id)
             elif len(fnames) == 1 and os.path.splitext(in_coords)[-1] == ".star":
-                print(fnames)
                 coords = read_starfile(fnames[0], coords_scale=coords_scale, col_name=col_name)
             else:
                 coords = combine_star_files(fnames, coords_scale=coords_scale, col_name=col_name)
@@ -487,7 +488,7 @@ def generate_from_starfile(
     while True:
         fnames = glob.glob(in_coords)
         fnames = [fn for fn in fnames if fn not in processed]
-        #print(f"{datetime.datetime.fromtimestamp(time.time())}: Found {len(fnames)} new files to process")
+        # print(f"{datetime.datetime.fromtimestamp(time.time())}: Found {len(fnames)} new files to process")
 
         if len(fnames) > 0:
             if len(fnames) == 1:
@@ -599,5 +600,7 @@ def old_generate_from_starfile(
     else:
         montage.make_stacks(voxel_spacing, out_dir, normalize, invert, radius)
         make_stack_starfile(
-            os.path.join(out_dir, "particles.mrcs"), os.path.join(out_dir, "particles.star"), apix=coords_scale,
+            os.path.join(out_dir, "particles.mrcs"),
+            os.path.join(out_dir, "particles.star"),
+            apix=coords_scale,
         )
