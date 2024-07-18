@@ -12,7 +12,7 @@ classifiers = [
 #dynamic = ["version"]
 version = "0.1.0"
 dependencies = [
-    "copick[all]",
+    "copick[all]>0.5.2",
     "pydantic",
     "numpy==1.26.4",
     "pandas",

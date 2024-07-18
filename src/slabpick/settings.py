@@ -32,9 +32,6 @@ class ProcessingParametersMinislab(BaseModel):
     normalize: bool
     radius: float
     invert: bool
-
-
-class ProcessingMode(BaseModel):
     live: bool
     t_interval: float
     t_exit: float
@@ -45,4 +42,3 @@ class ProcessingConfigMinislab(BaseModel):
     input: ProcessingInput
     output: ProcessingOutput
     parameters: ProcessingParametersMinislab
-    mode: ProcessingMode

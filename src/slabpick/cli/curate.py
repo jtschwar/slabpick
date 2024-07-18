@@ -55,8 +55,24 @@ def parse_args():
         required=False,
         help="Copick session ID, required if using copick for coordinates",
     )
-    parser.add_argument("--out_file", type=str, required=True, help="Output starfile")
-    parser.add_argument("--apix", type=float, required=True, help="Tilt-series pixel size (usually unbinned)")
+    parser.add_argument(
+        "--user_id",
+        type=str,
+        required=False,
+        help="Copick user ID, required if using copick for coordinates",
+    )
+    parser.add_argument(
+        "--out_file",
+        type=str,
+        required=True,
+        help="Output starfile"
+    )
+    parser.add_argument(
+        "--apix",
+        type=float,
+        required=True,
+        help="Tilt-series pixel size (usually unbinned)"
+    )
     parser.add_argument(
         "--rejected_set",
         action="store_true",
@@ -74,7 +90,7 @@ def main(config):
         d_coords = combine_star_files(config.in_star_multiple, coords_scale=config.apix, col_name=config.col_name)
     elif config.copick_json:
         cp_interface = CoPickWrangler(config.copick_json)
-        d_coords = cp_interface.get_all_coords(config.particle_name, config.session_id)
+        d_coords = cp_interface.get_all_coords(config.particle_name, config.session_id, config.user_id)
     else:
         raise ValueError("Either a copick config or a starfile must be provided.")
     ini_particle_count = np.sum(np.array([d_coords[tomo].shape[0] for tomo in d_coords]))

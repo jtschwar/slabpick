@@ -56,8 +56,18 @@ def parse_args():
         default="rlnTomoName",
         help="Tomogram column name in starfile(s)",
     )
-    parser.add_argument("--tomo_type", type=str, required=False, help="Tomogram type if extracting from copick")
-    parser.add_argument("--user_id", type=str, required=False, help="User ID, required if coordinates from copick")
+    parser.add_argument(
+        "--tomo_type",
+        type=str,
+        required=False,
+        help="Tomogram type if extracting from copick"
+    )
+    parser.add_argument(
+        "--user_id",
+        type=str,
+        required=False,
+        help="User ID, required if coordinates from copick"
+    )
     parser.add_argument(
         "--session_id",
         type=str,
@@ -93,7 +103,12 @@ def parse_args():
         action="store_true",
         help="Generate one gallery per volume, not applicable to stacks",
     )
-    parser.add_argument("--normalize", required=False, action="store_true", help="Normalize particle stacks")
+    parser.add_argument(
+        "--normalize",
+        required=False,
+        action="store_true",
+        help="Normalize particle stacks"
+    )
     parser.add_argument(
         "--radius",
         type=float,
@@ -101,7 +116,12 @@ def parse_args():
         default=0.9,
         help="Fractional radius for normalizing particle stacks",
     )
-    parser.add_argument("--invert", required=False, action="store_true", help="Invert contrast of particle stacks")
+    parser.add_argument(
+        "--invert",
+        required=False,
+        action="store_true",
+        help="Invert contrast of particle stacks"
+    )
 
     # arguments related to real-time mode
     parser.add_argument(
@@ -138,7 +158,6 @@ def generate_config(config):
     reconfig["software"] = {"name": "slabpick", "version": "0.1.0"}
     reconfig["input"] = {k: d_config[k] for k in ("in_coords", "in_vol")}
     reconfig["output"] = {k: d_config[k] for k in ("out_dir", "out_format")}
-    reconfig["mode"] = {k: d_config[k] for k in ("live", "t_interval", "t_exit")}
 
     used_keys = [list(reconfig[key].keys()) for key in reconfig]
     used_keys = [p for param in used_keys for p in param]
