@@ -7,7 +7,9 @@ from slabpick.settings import ProcessingConfigMinislab
 
 def parse_args():
     """Parser for command line arguments."""
-    parser = ArgumentParser(description="Generate starfile based on cryosparc-curated picks.")
+    parser = ArgumentParser(
+        description="Generate starfile based on cryosparc-curated picks.",
+    )
     # basic input/output arguments
     parser.add_argument(
         "--in_coords",
@@ -60,13 +62,13 @@ def parse_args():
         "--tomo_type",
         type=str,
         required=False,
-        help="Tomogram type if extracting from copick"
+        help="Tomogram type if extracting from copick",
     )
     parser.add_argument(
         "--user_id",
         type=str,
         required=False,
-        help="User ID, required if coordinates from copick"
+        help="User ID, required if coordinates from copick",
     )
     parser.add_argument(
         "--session_id",
@@ -107,7 +109,7 @@ def parse_args():
         "--normalize",
         required=False,
         action="store_true",
-        help="Normalize particle stacks"
+        help="Normalize particle stacks",
     )
     parser.add_argument(
         "--radius",
@@ -120,7 +122,7 @@ def parse_args():
         "--invert",
         required=False,
         action="store_true",
-        help="Invert contrast of particle stacks"
+        help="Invert contrast of particle stacks",
     )
 
     # arguments related to real-time mode
@@ -178,16 +180,23 @@ def main():
     as_stack = "stack" in config.out_format
     as_gallery = "gallery" in config.out_format
     if not as_stack and not as_gallery:
-        raise ValueError("out_format argument must contain at least one of gallery or stack")
+        raise ValueError(
+            "out_format argument must contain at least one of gallery or stack",
+        )
 
     if os.path.splitext(config.in_coords)[-1] == ".json":
         if None in [config.user_id, config.session_id, config.particle_name]:
             raise ValueError("Missing session ID and/or particle name")
     if os.path.splitext(config.in_vol)[-1] == ".json" and config.tomo_type is None:
         raise ValueError("Missing tomogram type")
-    if os.path.splitext(config.in_vol)[-1] == ".json" and os.path.splitext(config.in_coords)[-1] == ".json":
+    if (
+        os.path.splitext(config.in_vol)[-1] == ".json"
+        and os.path.splitext(config.in_coords)[-1] == ".json"
+    ):
         if config.in_vol != config.in_coords:
-            print("Warning! in_vol and in_coords correspond to different copick config files")
+            print(
+                "Warning! in_vol and in_coords correspond to different copick config files",
+            )
 
     make_particle_projections(
         config.in_vol,

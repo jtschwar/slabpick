@@ -4,13 +4,22 @@ import numpy as np
 import pandas as pd
 
 from slabpick.csedit import curate_particles_map, curate_particles_map_iterative
-from slabpick.dataio import CoPickWrangler, combine_star_files, make_starfile, read_starfile
+from slabpick.dataio import (
+    CoPickWrangler,
+    combine_star_files,
+    make_starfile,
+    read_starfile,
+)
 
 
 def parse_args():
     """Parser for command line arguments."""
-    parser = ArgumentParser(description="Generate starfile based on cryosparc-curated picks.")
-    parser.add_argument("--copick_json", type=str, required=False, help="Copick json file")
+    parser = ArgumentParser(
+        description="Generate starfile based on cryosparc-curated picks.",
+    )
+    parser.add_argument(
+        "--copick_json", type=str, required=False, help="Copick json file",
+    )
     parser.add_argument(
         "--in_star",
         type=str,
@@ -61,17 +70,12 @@ def parse_args():
         required=False,
         help="Copick user ID, required if using copick for coordinates",
     )
-    parser.add_argument(
-        "--out_file",
-        type=str,
-        required=True,
-        help="Output starfile"
-    )
+    parser.add_argument("--out_file", type=str, required=True, help="Output starfile")
     parser.add_argument(
         "--apix",
         type=float,
         required=True,
-        help="Tilt-series pixel size (usually unbinned)"
+        help="Tilt-series pixel size (usually unbinned)",
     )
     parser.add_argument(
         "--rejected_set",
@@ -85,23 +89,35 @@ def parse_args():
 def main(config):
     # extract all particle coordinates
     if config.in_star:
-        d_coords = read_starfile(config.in_star, coords_scale=config.apix, col_name=config.col_name)
+        d_coords = read_starfile(
+            config.in_star, coords_scale=config.apix, col_name=config.col_name,
+        )
     elif config.in_star_multiple:
-        d_coords = combine_star_files(config.in_star_multiple, coords_scale=config.apix, col_name=config.col_name)
+        d_coords = combine_star_files(
+            config.in_star_multiple, coords_scale=config.apix, col_name=config.col_name,
+        )
     elif config.copick_json:
         cp_interface = CoPickWrangler(config.copick_json)
-        d_coords = cp_interface.get_all_coords(config.particle_name, config.session_id, config.user_id)
+        d_coords = cp_interface.get_all_coords(
+            config.particle_name, config.session_id, config.user_id,
+        )
     else:
         raise ValueError("Either a copick config or a starfile must be provided.")
-    ini_particle_count = np.sum(np.array([d_coords[tomo].shape[0] for tomo in d_coords]))
+    ini_particle_count = np.sum(
+        np.array([d_coords[tomo].shape[0] for tomo in d_coords]),
+    )
 
     # map retained particles in cryosparc to gallery tiles
     cs_extract = np.load(config.cs_file)
     particles_map = pd.read_csv(config.map_file)
     if len(particles_map) > 1e6:
-        curated_map = curate_particles_map_iterative(cs_extract, particles_map, rejected_set=config.rejected_set)
+        curated_map = curate_particles_map_iterative(
+            cs_extract, particles_map, rejected_set=config.rejected_set,
+        )
     else:
-        curated_map = curate_particles_map(cs_extract, particles_map, rejected_set=config.rejected_set)
+        curated_map = curate_particles_map(
+            cs_extract, particles_map, rejected_set=config.rejected_set,
+        )
 
     # curate particles
     d_coords_sel = {}
@@ -110,8 +126,12 @@ def main(config):
         tomo_indices = np.where(curated_map.tomogram.values == tomo)[0]
         particle_indices = curated_map.iloc[tomo_indices].particle.values
         d_coords_sel[tomo] = d_coords[tomo][particle_indices]
-        final_particle_count = np.sum(np.array([d_coords_sel[tomo].shape[0] for tomo in d_coords_sel]))
-    print(f"Cryosparc reduced particle set size from {ini_particle_count} to {final_particle_count}")
+        final_particle_count = np.sum(
+            np.array([d_coords_sel[tomo].shape[0] for tomo in d_coords_sel]),
+        )
+    print(
+        f"Cryosparc reduced particle set size from {ini_particle_count} to {final_particle_count}",
+    )
 
     # generate Relion 4-compatible starfile
     make_starfile(d_coords_sel, config.out_file, coords_scale=1.0 / config.apix)
