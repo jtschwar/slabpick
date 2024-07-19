@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import starfile
 import zarr
-from copick.impl.filesystem import CopickRootFSSpec
 from copick.models import CopickLocation, CopickPoint
 
 
@@ -28,7 +27,10 @@ def load_mrc(filename: str) -> np.ndarray:
 
 
 def save_mrc(
-    data: np.ndarray, filename: str, overwrite: bool = True, apix: float = None,
+    data: np.ndarray,
+    filename: str,
+    overwrite: bool = True,
+    apix: float = None,
 ):
     """
     Save a numpy array to mrc format.
@@ -180,6 +182,9 @@ def read_starfile(
     d_coords: dictionary of tomogram name: particle XYZ coordinates
     """
     particles = starfile.read(in_star)
+    if len(particles) == 0:
+        print(f"Warning: {in_star} appears to be an empty starfile")
+        return {}
     if isinstance(particles, dict):
         particles = particles["particles"]
 
@@ -208,7 +213,9 @@ def read_starfile(
 
 
 def combine_star_files(
-    in_star: list, col_name: str = "rlnTomoName", coords_scale: float = 1,
+    in_star: list,
+    col_name: str = "rlnTomoName",
+    coords_scale: float = 1,
 ) -> dict:
     """
     Combine multiple star files into a single dictionary
@@ -274,10 +281,14 @@ class CoPickWrangler:
         ----------
         config: str, copick configuration file
         """
-        self.root = CopickRootFSSpec.from_file(config)
+        self.root = copick.from_file(config)
 
     def get_run_coords(
-        self, run_name: str, particle_name: str, session_id: str, user_id: str,
+        self,
+        run_name: str,
+        particle_name: str,
+        session_id: str,
+        user_id: str,
     ) -> np.ndarray:
         """
         Extract coordinates for a partciular run.
@@ -294,7 +305,9 @@ class CoPickWrangler:
         np.array, shape (n_coords, 3) of coordinates in Angstrom
         """
         pick = self.root.get_run(run_name).get_picks(
-            particle_name, session_id=session_id, user_id=user_id,
+            particle_name,
+            session_id=session_id,
+            user_id=user_id,
         )
         if len(pick) == 0:
             print(f"Picks json file may be missing for run: {run_name}")
@@ -305,7 +318,10 @@ class CoPickWrangler:
         )
 
     def get_run_tomogram(
-        self, run_name: str, voxel_spacing: float, tomo_type: str,
+        self,
+        run_name: str,
+        voxel_spacing: float,
+        tomo_type: str,
     ) -> zarr.core.Array:
         """
         Get tomogram for a particular run.
@@ -390,7 +406,8 @@ def coords_to_copick(
             else:
                 pts.append(
                     CopickPoint(
-                        location=CopickLocation(x=sc[0], y=sc[1], z=sc[2]), score=sc[3],
+                        location=CopickLocation(x=sc[0], y=sc[1], z=sc[2]),
+                        score=sc[3],
                     ),
                 )
 
@@ -399,7 +416,9 @@ def coords_to_copick(
             run = root.new_run(run_name)
 
         new_picks = run.new_picks(
-            object_name=particle_name, session_id=session_id, user_id=user_id,
+            object_name=particle_name,
+            session_id=session_id,
+            user_id=user_id,
         )
         new_picks.points = pts
         new_picks.store()
