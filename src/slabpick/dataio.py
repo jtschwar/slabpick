@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import starfile
 import zarr
-from copick.impl.filesystem import CopickRootFSSpec
+import copick
 from copick.models import CopickLocation, CopickPoint
 
 
@@ -274,7 +274,7 @@ class CoPickWrangler:
         ----------
         config: str, copick configuration file
         """
-        self.root = CopickRootFSSpec.from_file(config)
+        self.root = copick.from_file(config)
 
     def get_run_coords(
         self, run_name: str, particle_name: str, session_id: str, user_id: str,
