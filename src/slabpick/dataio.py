@@ -182,7 +182,7 @@ def read_starfile(
     d_coords: dictionary of tomogram name: particle XYZ coordinates
     """
     particles = starfile.read(in_star)
-    if len(particles)==0:
+    if len(particles) == 0:
         print(f"Warning: {in_star} appears to be an empty starfile")
         return {}
     if isinstance(particles, dict):
