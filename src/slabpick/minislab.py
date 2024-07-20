@@ -9,7 +9,7 @@ import pandas as pd
 from scipy.ndimage import gaussian_filter
 
 from slabpick.dataio import (
-    CoPickWrangler,
+    CopickInterface,
     combine_star_files,
     load_mrc,
     make_stack_starfile,
@@ -376,9 +376,12 @@ def make_particle_projections(
 
         if len(fnames) > 0:
             # handle different coordinate entrypoints
+            cp_interface = None
             if len(fnames) == 1 and os.path.splitext(in_coords)[-1] == ".json":
-                cp_interface = CoPickWrangler(in_coords)
-                coords = cp_interface.get_all_coords(particle_name, session_id, user_id)
+                cp_interface = CopickInterface(in_coords)
+                coords = cp_interface.get_all_coords(particle_name,
+                                                     user_id,
+                                                     session_id=session_id)
             elif len(fnames) == 1 and os.path.splitext(in_coords)[-1] == ".star":
                 coords = read_starfile(
                     fnames[0], coords_scale=coords_scale, col_name=col_name,
@@ -391,7 +394,8 @@ def make_particle_projections(
             # handle different volume entrypoints
             if os.path.isfile(in_vol):
                 load_method = "copick"
-                cp_interface = CoPickWrangler(in_vol)
+                if cp_interface is None:
+                    cp_interface = CopickInterface(in_vol)
             else:
                 load_method = "mrc"
 
