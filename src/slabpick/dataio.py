@@ -269,114 +269,6 @@ def read_copick_json(fname: str) -> np.ndarray:
     )
 
 
-class CoPickWrangler:
-    """
-    Utilties to extract information from a copick project.
-    copick documentation: https://uermel.github.io/copick/
-    """
-
-    def __init__(self, config: str):
-        """
-        Parameters
-        ----------
-        config: str, copick configuration file
-        """
-        self.root = copick.from_file(config)
-
-    def get_run_coords(
-        self,
-        run_name: str,
-        particle_name: str,
-        session_id: str,
-        user_id: str,
-    ) -> np.ndarray:
-        """
-        Extract coordinates for a partciular run.
-
-        Parameters
-        ----------
-        run_name: str, name of run
-        particle_name: str, name of particle
-        session_id: str, name of session
-        user_id: str, name of user
-
-        Returns
-        -------
-        np.array, shape (n_coords, 3) of coordinates in Angstrom
-        """
-        pick = self.root.get_run(run_name).get_picks(
-            particle_name,
-            session_id=session_id,
-            user_id=user_id,
-        )
-        if len(pick) == 0:
-            print(f"Picks json file may be missing for run: {run_name}")
-            return np.empty(0)
-        pick = pick[0]
-        return np.array(
-            [(p.location.x, p.location.y, p.location.z) for p in pick.points],
-        )
-
-    def get_run_tomogram(
-        self,
-        run_name: str,
-        voxel_spacing: float,
-        tomo_type: str,
-    ) -> zarr.core.Array:
-        """
-        Get tomogram for a particular run.
-
-        Parameters
-        ----------
-        run_name: str, name of run
-        voxel_spacing: float, voxel spacing in Angstrom
-        tomo_type: str, type of tomogram, e.g. denoised
-
-        Returns
-        -------
-        array: zarr.core.Array, tomogram volume
-        """
-        run = self.root.get_run(run_name)
-        tomogram = run.get_voxel_spacing(voxel_spacing).get_tomogram(
-            tomo_type=tomo_type,
-        )
-        arrays = list(zarr.open(tomogram.zarr(), "r").arrays())
-        _, array = arrays[0]  # 0 corresponds to unbinned
-        return array
-
-    def get_run_names(self) -> list:
-        """
-        Extract all run names.
-
-        Returns
-        -------
-        list, names of all available runs
-        """
-        return [run.name for run in self.root.runs]
-
-    def get_all_coords(self, particle_name: str, session_id: str, user_id: str) -> dict:
-        """
-        Extract all coordinates for a particle across a dataset.
-
-        Parameters
-        ----------
-        particle_name: str, name of particle
-        session_id: str, name of session
-        user_id: str, name of user
-
-        Returns
-        -------
-        d_coords: dict, mapping of run name to particle coordinates
-        """
-        runs = self.get_run_names()
-        d_coords = {}
-        for run in runs:
-            coords = self.get_run_coords(run, particle_name, session_id, user_id)
-            if len(coords) > 0:
-                d_coords[run] = coords
-        return d_coords
-
-
 def coords_to_copick(
     root: copick.models.CopickRoot,
     d_coords: dict,
@@ -422,3 +314,175 @@ def coords_to_copick(
         )
         new_picks.points = pts
         new_picks.store()
+
+        
+class CopickInterface:
+    """
+    Utilties to extract information from a copick project.
+    copick documentation: https://uermel.github.io/copick/
+    """
+    
+    def __init__(
+        self, 
+        config: str
+    ):
+        """
+        Parameters
+        ----------
+        config: copick configuration file
+        """
+        self.root = copick.from_file(config)
+
+    def get_pickable_objects(
+        self
+    ) -> list[tuple]:
+        """
+        Extract list of pickable objects.
+        
+        Returns
+        -------
+        list of (particle_name, go_id) for each pickable object
+        """
+        return [(o.name, o.go_id) for o in self.root.pickable_objects]
+        
+    def get_run_names(
+        self
+    ) -> list[str]:
+        """
+        Extract all run names.
+
+        Returns
+        -------
+        names of all available runs
+        """
+        return [run.name for run in self.root.runs]
+    
+    def get_voxel_spacings(
+        self, 
+        run_name: str
+    ) -> list[float]:
+        """
+        Extract voxel spacings associated with the run.
+        
+        Parameters
+        ----------
+        run_name: run name
+        
+        Returns
+        -------
+        voxel spacings available for the run
+        """
+        run = self.root.get_run(run_name)
+        return [vs.voxel_size for vs in run.voxel_spacings]
+    
+    def get_tomogram_types(
+        self, 
+        run_name: str, 
+        voxel_spacing: float
+    ) -> list[str]:
+        """
+        Extract tomogram types associated with the run.
+        
+        Parameters
+        ----------
+        run_name: run name
+        
+        Returns
+        -------
+        tomogram types available for the run  
+        """
+        run = self.root.get_run(run_name)
+        voxel_spacing = run.get_voxel_spacing(voxel_spacing)
+        tomograms = voxel_spacing.tomograms
+        return [tomogram.tomo_type for tomogram in tomograms]
+    
+    def get_run_tomogram(
+        self, 
+        run_name: str, 
+        voxel_spacing: float, 
+        tomo_type: str
+    ) -> zarr.core.Array:
+        """
+        Get tomogram for a particular run.
+
+        Parameters
+        ----------
+        run_name: run name
+        voxel_spacing: voxel spacing in Angstrom
+        tomo_type: type of tomogram
+
+        Returns
+        -------
+        array: volume
+        """
+        run = self.root.get_run(run_name)
+        tomogram = run.get_voxel_spacing(voxel_spacing).get_tomogram(
+            tomo_type=tomo_type,
+        )
+        arrays = list(zarr.open(tomogram.zarr(), "r").arrays())
+        _, array = arrays[0]  # 0 corresponds to unbinned
+        return array
+    
+    def get_run_coords(
+        self,
+        run_name: str,
+        particle_name: str,
+        user_id: str,
+        session_id: str=None
+    ) -> np.ndarray:
+        """
+        Extract coordinates for a partciular run.
+
+        Parameters
+        ----------
+        run_name: run name
+        particle_name: particle name
+        user_id: user id, data-portal for portal data
+        session_id: session ID
+
+        Returns
+        -------
+        coordinates in Angstrom of shape (n_coords, 3)
+        """
+        picks = self.root.get_run(run_name).get_picks(
+            particle_name,
+            session_id=session_id,
+            user_id=user_id,
+        )
+        if len(picks) == 0:
+            print(f"No picks found for run {run_name}")
+            return np.empty(0)
+        return np.array(
+            [(p.location.x, p.location.y, p.location.z) for p in picks[0].points],
+        )
+
+    def get_all_coords(
+        self,
+        particle_name: str,
+        user_id: str,
+        session_id: str=None
+    ) -> dict:
+        """
+        Extract all coordinates for a particle across a dataset.
+
+        Parameters
+        ----------
+        run_name: run name
+        particle_name: particle name
+        user_id: user id, data-portal for portal data
+        session_id: session ID
+
+        Returns
+        -------
+        d_coords: run_names mapped to coordinates
+        """
+        run_names = self.get_run_names()
+        d_coords = {}
+        for run_name in run_names:
+            coords = self.get_run_coords(run_name,
+                                         particle_name,
+                                         user_id,
+                                         session_id = session_id)
+            if len(coords) > 0:
+                d_coords[run_name] = coords
+        return d_coords
