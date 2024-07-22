@@ -2,7 +2,6 @@ import glob
 import os
 import time
 import warnings
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -125,7 +124,8 @@ class Minislab:
                     projection = np.vstack((projection, filler))
                     if self.shape[1] - edge > 4:
                         projection[edge - 1 : edge + 1] = gaussian_filter(
-                            projection[edge - 2 : edge + 2], sigma=1.1,
+                            projection[edge - 2 : edge + 2],
+                            sigma=1.1,
                         )[1:-1]
 
             if projection.shape[1] != self.shape[0]:
@@ -137,14 +137,17 @@ class Minislab:
                     projection = np.hstack((filler, projection))
                     if self.shape[0] - edge > 4:
                         projection[
-                            :, self.shape[0] - edge - 1 : self.shape[0] - edge + 1,
+                            :,
+                            self.shape[0] - edge - 1 : self.shape[0] - edge + 1,
                         ] = gaussian_filter(
                             projection[
-                                :, self.shape[0] - edge - 2 : self.shape[0] - edge + 2,
+                                :,
+                                self.shape[0] - edge - 2 : self.shape[0] - edge + 2,
                             ],
                             sigma=1.1,
                         )[
-                            :, 1:-1,
+                            :,
+                            1:-1,
                         ]
                 else:
                     projection = np.hstack((projection, filler))
@@ -160,7 +163,9 @@ class Minislab:
             self.num_particles += 1
 
     def make_one_gallery(
-        self, gshape: tuple[int, int], key_list: list,
+        self,
+        gshape: tuple[int, int],
+        key_list: list,
     ) -> tuple[np.ndarray, list, list]:
         """
         Generate a single gallery from select minislabs.
@@ -249,7 +254,9 @@ class Minislab:
                 filename = "particles"
             gallery, row_idx, col_idx = self.make_one_gallery(gshape, key_list)
             save_mrc(
-                gallery, os.path.join(outdir, f"{filename}_{nm:03d}.mrc"), apix=apix,
+                gallery,
+                os.path.join(outdir, f"{filename}_{nm:03d}.mrc"),
+                apix=apix,
             )
             self.row_idx.extend(row_idx)
             self.col_idx.extend(col_idx)
@@ -381,16 +388,20 @@ def make_particle_projections(
             cp_interface = None
             if len(fnames) == 1 and os.path.splitext(in_coords)[-1] == ".json":
                 cp_interface = CopickInterface(in_coords)
-                coords = cp_interface.get_all_coords(particle_name,
-                                                     user_id,
-                                                     session_id=session_id)
+                coords = cp_interface.get_all_coords(
+                    particle_name, user_id, session_id=session_id,
+                )
             elif len(fnames) == 1 and os.path.splitext(in_coords)[-1] == ".star":
                 coords = read_starfile(
-                    fnames[0], coords_scale=coords_scale, col_name=col_name,
+                    fnames[0],
+                    coords_scale=coords_scale,
+                    col_name=col_name,
                 )
             else:
                 coords = combine_star_files(
-                    fnames, coords_scale=coords_scale, col_name=col_name,
+                    fnames,
+                    coords_scale=coords_scale,
+                    col_name=col_name,
                 )
 
             # handle different volume entrypoints
@@ -405,7 +416,9 @@ def make_particle_projections(
             for run_name in coords:
                 if load_method == "copick":
                     volume = cp_interface.get_run_tomogram(
-                        run_name, voxel_spacing, tomo_type,
+                        run_name,
+                        voxel_spacing,
+                        tomo_type,
                     )
                 if load_method == "mrc":
                     vol_name = os.path.join(in_vol, f"{run_name}.mrc")
@@ -427,7 +440,10 @@ def make_particle_projections(
     if as_gallery:
         gallery_out_dir = os.path.join(out_dir, "gallery") if as_gallery else out_dir
         montage.make_galleries(
-            gallery_shape, voxel_spacing, gallery_out_dir, one_per_vol,
+            gallery_shape,
+            voxel_spacing,
+            gallery_out_dir,
+            one_per_vol,
         )
     if as_stack:
         stack_out_dir = os.path.join(out_dir, "stack") if as_gallery else out_dir
@@ -443,7 +459,3 @@ def make_particle_projections(
             os.path.join(stack_out_dir, "particles.star"),
             apix=coords_scale,
         )
-
-
-
-
