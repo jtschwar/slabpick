@@ -229,6 +229,8 @@ class Minislab:
 
         if not one_per_vol:
             n_mgraphs = len(self.minislabs) // np.prod(gshape) + 1
+            if len(self.minislabs) % np.prod(gshape) == 0:
+                n_mgraphs -= 1
         else:
             n_mgraphs = len(set(self.tomo_names))
             unique_names = pd.unique(np.array(self.tomo_names))
