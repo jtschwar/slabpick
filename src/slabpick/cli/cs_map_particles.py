@@ -3,13 +3,8 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 
-from slabpick.csedit import curate_particles_map, curate_particles_map_iterative
-from slabpick.dataio import (
-    CopickInterface,
-    combine_star_files,
-    make_starfile,
-    read_starfile,
-)
+import slabpick.csedit as csedit
+import slabpick.dataio as dataio
 
 
 def parse_args():
@@ -18,7 +13,10 @@ def parse_args():
         description="Generate starfile based on cryosparc-curated picks.",
     )
     parser.add_argument(
-        "--copick_json", type=str, required=False, help="Copick json file",
+        "--copick_json",
+        type=str,
+        required=False,
+        help="Copick json file",
     )
     parser.add_argument(
         "--in_star",
@@ -70,17 +68,13 @@ def parse_args():
         required=False,
         help="Copick user ID, required if using copick for coordinates",
     )
-    parser.add_argument(
-        "--out_file",
-        type=str,
-        required=True,
-        help="Output starfile")
+    parser.add_argument("--out_file", type=str, required=True, help="Output starfile")
     parser.add_argument(
         "--coords_scale",
         type=float,
         required=False,
         default=1.0,
-        help="Multiplicative factor to convert input coords in starfile(s) to Angstrom"
+        help="Multiplicative factor to convert input coords in starfile(s) to Angstrom",
     )
     parser.add_argument(
         "--apix",
@@ -100,17 +94,21 @@ def parse_args():
 def main(config):
     # extract all particle coordinates
     if config.in_star:
-        d_coords = read_starfile(
-            config.in_star, coords_scale=config.coords_scale, col_name=config.col_name,
+        d_coords = dataio.read_starfile(
+            config.in_star,
+            coords_scale=config.coords_scale,
+            col_name=config.col_name,
         )
     elif config.in_star_multiple:
-        d_coords = combine_star_files(
-            config.in_star_multiple, coords_scale=config.coords_scale, col_name=config.col_name,
+        d_coords = dataio.combine_star_files(
+            config.in_star_multiple,
+            coords_scale=config.coords_scale,
+            col_name=config.col_name,
         )
     elif config.copick_json:
-        cp_interface = CopickInterface(config.copick_json)
+        cp_interface = dataio.CopickInterface(config.copick_json)
         d_coords = cp_interface.get_all_coords(
-            config.particle_name, config.user_id, session_id=config.session_id
+            config.particle_name, config.user_id, session_id=config.session_id,
         )
     else:
         raise ValueError("Either a copick config or a starfile must be provided.")
@@ -122,12 +120,16 @@ def main(config):
     cs_extract = np.load(config.cs_file)
     particles_map = pd.read_csv(config.map_file)
     if len(particles_map) > 1e6:
-        curated_map = curate_particles_map_iterative(
-            cs_extract, particles_map, rejected_set=config.rejected_set,
+        curated_map = csedit.curate_particles_map_iterative(
+            cs_extract,
+            particles_map,
+            rejected_set=config.rejected_set,
         )
     else:
-        curated_map = curate_particles_map(
-            cs_extract, particles_map, rejected_set=config.rejected_set,
+        curated_map = csedit.curate_particles_map(
+            cs_extract,
+            particles_map,
+            rejected_set=config.rejected_set,
         )
 
     # curate particles
@@ -145,7 +147,7 @@ def main(config):
     )
 
     # generate Relion 4-compatible starfile
-    make_starfile(d_coords_sel, config.out_file, coords_scale=1.0 / config.apix)
+    dataio.make_starfile(d_coords_sel, config.out_file, coords_scale=1.0 / config.apix)
 
 
 if __name__ == "__main__":
