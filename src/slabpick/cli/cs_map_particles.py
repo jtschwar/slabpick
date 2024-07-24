@@ -1,3 +1,4 @@
+import os
 from argparse import ArgumentParser
 
 import numpy as np
@@ -5,6 +6,7 @@ import pandas as pd
 
 import slabpick.csedit as csedit
 import slabpick.dataio as dataio
+from slabpick.settings import ProcessingConfigCsMapParticles
 
 
 def parse_args():
@@ -68,7 +70,12 @@ def parse_args():
         required=False,
         help="Copick user ID, required if using copick for coordinates",
     )
-    parser.add_argument("--out_file", type=str, required=True, help="Output starfile")
+    parser.add_argument(
+        "--out_file",
+        type=str,
+        required=True,
+        help="Output starfile",
+    )
     parser.add_argument(
         "--coords_scale",
         type=float,
@@ -91,7 +98,41 @@ def parse_args():
     return parser.parse_args()
 
 
-def main(config):
+def generate_config(config):
+    """
+    Store command line arguments in a json file.
+    """
+    d_config = vars(config)
+
+    input_list = ["cs_file", "map_file", "copick_json", "in_star", "in_star_multiple"]
+    parameter_list = [
+        "col_name",
+        "particle_name",
+        "session_id",
+        "user_id",
+        "coords_scale",
+        "apix",
+        "rejected_set",
+    ]
+
+    reconfig = {}
+    reconfig["software"] = {"name": "slabpick", "version": "0.1.0"}
+    reconfig["input"] = {k: d_config[k] for k in input_list}
+    reconfig["output"] = {k: d_config[k] for k in ["out_file"]}
+    reconfig["parameters"] = {k: d_config[k] for k in parameter_list}
+
+    reconfig = ProcessingConfigCsMapParticles(**reconfig)
+
+    out_dir = os.path.dirname(os.path.abspath(config.out_file))
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "cs_map_particles.json"), "w") as f:
+        f.write(reconfig.model_dump_json(indent=4))
+
+
+def main():
+    config = parse_args()
+    generate_config(config)
+
     # extract all particle coordinates
     if config.in_star:
         d_coords = dataio.read_starfile(
@@ -108,7 +149,9 @@ def main(config):
     elif config.copick_json:
         cp_interface = dataio.CopickInterface(config.copick_json)
         d_coords = cp_interface.get_all_coords(
-            config.particle_name, config.user_id, session_id=config.session_id,
+            config.particle_name,
+            config.user_id,
+            session_id=config.session_id,
         )
     else:
         raise ValueError("Either a copick config or a starfile must be provided.")
@@ -151,5 +194,4 @@ def main(config):
 
 
 if __name__ == "__main__":
-    config = parse_args()
-    main(config)
+    main()

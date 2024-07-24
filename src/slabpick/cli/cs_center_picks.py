@@ -1,8 +1,11 @@
+import os
 import shutil
 from argparse import ArgumentParser
 
 import numpy as np
 import pandas as pd
+
+from slabpick.settings import ProcessingConfigCsCenterPicks
 
 
 def parse_args():
@@ -34,8 +37,30 @@ def parse_args():
     return parser.parse_args()
 
 
+def generate_config(config):
+    """
+    Store command line arguments in a json file.
+    """
+    d_config = vars(config)
+
+    reconfig = {}
+    reconfig["software"] = {"name": "slabpick", "version": "0.1.0"}
+    reconfig["input"] = {k: d_config[k] for k in ["cs_file", "map_file"]}
+    reconfig["output"] = {k: d_config[k] for k in ["cs_file"]}
+    reconfig["parameters"] = {k: d_config[k] for k in ["gallery_shape"]}
+
+    reconfig = ProcessingConfigCsCenterPicks(**reconfig)
+
+    out_dir = os.path.dirname(os.path.abspath(os.path.join(config.map_file, "../")))
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "cs_center_picks.json"), "w") as f:
+        f.write(reconfig.model_dump_json(indent=4))
+
+
 def main():
     config = parse_args()
+    generate_config(config)
+
     particles_map = pd.read_csv(config.map_file)
     cs_picks = np.load(config.cs_file)
     gallery_shape = tuple(config.gallery_shape)[

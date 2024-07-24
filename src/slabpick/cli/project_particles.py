@@ -2,7 +2,7 @@ import os
 from argparse import ArgumentParser
 
 from slabpick.minislab import make_particle_projections
-from slabpick.settings import ProcessingConfigMinislab
+from slabpick.settings import ProcessingConfigProjectParticles
 
 
 def parse_args():
@@ -166,10 +166,10 @@ def generate_config(config):
     param_keys = [key for key in d_config if key not in used_keys]
     reconfig["parameters"] = {k: d_config[k] for k in param_keys}
 
-    reconfig = ProcessingConfigMinislab(**reconfig)
+    reconfig = ProcessingConfigProjectParticles(**reconfig)
 
     os.makedirs(config.out_dir, exist_ok=True)
-    with open(os.path.join(config.out_dir, "config.json"), "w") as f:
+    with open(os.path.join(config.out_dir, "project_particles.json"), "w") as f:
         f.write(reconfig.model_dump_json(indent=4))
 
 
