@@ -8,17 +8,18 @@ class ProcessingSoftware(BaseModel):
     version: str
 
 
-class ProcessingInput(BaseModel):
+# for project_particles command
+class ProcessingInputProjectParticles(BaseModel):
     in_coords: str
     in_vol: str
 
 
-class ProcessingOutput(BaseModel):
+class ProcessingOutputProjectParticles(BaseModel):
     out_dir: str
     out_format: List[str]
 
 
-class ProcessingParametersMinislab(BaseModel):
+class ProcessingParametersProjectParticles(BaseModel):
     extract_shape: List[int]
     voxel_spacing: float
     coords_scale: float
@@ -37,8 +38,59 @@ class ProcessingParametersMinislab(BaseModel):
     t_exit: float
 
 
-class ProcessingConfigMinislab(BaseModel):
+class ProcessingConfigProjectParticles(BaseModel):
     software: ProcessingSoftware
-    input: ProcessingInput
-    output: ProcessingOutput
-    parameters: ProcessingParametersMinislab
+    input: ProcessingInputProjectParticles
+    output: ProcessingOutputProjectParticles
+    parameters: ProcessingParametersProjectParticles
+
+
+# for cs_center_picks command
+class ProcessingInputCsCenterPicks(BaseModel):
+    cs_file: str
+    map_file: str
+
+
+class ProcessingOutputCsCenterPicks(BaseModel):
+    cs_file: str
+
+
+class ProcessingParametersCsCenterPicks(BaseModel):
+    gallery_shape: List[int]
+
+
+class ProcessingConfigCsCenterPicks(BaseModel):
+    software: ProcessingSoftware
+    input: ProcessingInputCsCenterPicks
+    output: ProcessingOutputCsCenterPicks
+    parameters: ProcessingParametersCsCenterPicks
+
+
+# for cs_map_particles command
+class ProcessingInputCsMapParticles(BaseModel):
+    copick_json: Optional[str]
+    in_star: Optional[str]
+    in_star_multiple: Optional[List]
+    cs_file: str
+    map_file: str
+
+
+class ProcessingOutputCsMapParticles(BaseModel):
+    out_file: str
+
+
+class ProcessingParametersCsMapParticles(BaseModel):
+    col_name: Optional[str]
+    particle_name: Optional[str]
+    session_id: Optional[str]
+    user_id: Optional[str]
+    coords_scale: float
+    apix: float
+    rejected_set: bool
+
+
+class ProcessingConfigCsMapParticles(BaseModel):
+    software: ProcessingSoftware
+    input: ProcessingInputCsMapParticles
+    output: ProcessingOutputCsMapParticles
+    parameters: ProcessingParametersCsMapParticles

@@ -50,6 +50,8 @@ dev = [
 
 [project.scripts]
 project_particles = "slabpick.cli.project_particles:main"
+cs_center_picks = "slabpick.cli.cs_center_picks:main"
+cs_map_particles = "slabpick.cli.cs_map_particles:main"
 
 #[tool.hatch.version]
 #source = "slabpick/__init__.py"
