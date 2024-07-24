@@ -1,7 +1,7 @@
 import os
 
 import numpy as np
-from slabpick.dataio import get_voxel_size, load_mrc, make_starfile, read_starfile, save_mrc
+import slabpick.dataio as dataio
 
 
 def test_mrc_functions():
@@ -12,10 +12,10 @@ def test_mrc_functions():
     out_name = "test.mrc"
 
     vol = np.random.randn(5, 3).astype(np.float32)
-    save_mrc(vol, out_name, apix=apix)
-    assert get_voxel_size(out_name) == apix
+    dataio.save_mrc(vol, out_name, apix=apix)
+    assert dataio.get_voxel_size(out_name) == apix
 
-    same_vol = load_mrc(out_name)
+    same_vol = dataio.load_mrc(out_name)
     np.testing.assert_array_equal(vol, same_vol)
     os.remove(out_name)
 
@@ -30,10 +30,14 @@ def test_star_functions():
 
     d_coords = {}
     for run_name in ["TS_1_1", "TS_1_2", "TS_1_3"]:
-        d_coords[run_name] = np.random.randint(0, high=100, size=(np.random.randint(3, 7), 3)).astype(np.float32)
-    make_starfile(d_coords, out_name, coords_scale=coords_scale)
+        d_coords[run_name] = np.random.randint(
+            0,
+            high=100,
+            size=(np.random.randint(3, 7), 3),
+        ).astype(np.float32)
+    dataio.make_starfile(d_coords, out_name, coords_scale=coords_scale)
 
-    same_d_coords = read_starfile(out_name, coords_scale=1.0 / coords_scale)
+    same_d_coords = dataio.read_starfile(out_name, coords_scale=1.0 / coords_scale)
     for run_name in d_coords:
         np.testing.assert_array_equal(d_coords[run_name], same_d_coords[run_name])
     os.remove(out_name)
