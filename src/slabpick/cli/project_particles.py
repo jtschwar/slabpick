@@ -184,9 +184,11 @@ def main():
             "out_format argument must contain at least one of gallery or stack",
         )
 
-    if os.path.splitext(config.in_coords)[-1] == ".json":
-        if None in [config.user_id, config.particle_name]:
-            raise ValueError("Missing user ID and/or particle name")
+    if (
+        os.path.splitext(config.in_coords)[-1] == ".json"
+        and config.particle_name is None
+    ):
+        raise ValueError("Missing particle name")
     if os.path.splitext(config.in_vol)[-1] == ".json" and config.tomo_type is None:
         raise ValueError("Missing tomogram type")
     if (
