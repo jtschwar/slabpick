@@ -315,17 +315,14 @@ def coords_to_copick(
         new_picks.points = pts
         new_picks.store()
 
-        
+
 class CopickInterface:
     """
     Utilties to extract information from a copick project.
     copick documentation: https://uermel.github.io/copick/
     """
-    
-    def __init__(
-        self, 
-        config: str
-    ):
+
+    def __init__(self, config: str):
         """
         Parameters
         ----------
@@ -333,21 +330,17 @@ class CopickInterface:
         """
         self.root = copick.from_file(config)
 
-    def get_pickable_objects(
-        self
-    ) -> list[tuple]:
+    def get_pickable_objects(self) -> list[tuple]:
         """
         Extract list of pickable objects.
-        
+
         Returns
         -------
         list of (particle_name, go_id) for each pickable object
         """
         return [(o.name, o.go_id) for o in self.root.pickable_objects]
-        
-    def get_run_names(
-        self
-    ) -> list[str]:
+
+    def get_run_names(self) -> list[str]:
         """
         Extract all run names.
 
@@ -356,51 +349,41 @@ class CopickInterface:
         names of all available runs
         """
         return [run.name for run in self.root.runs]
-    
-    def get_voxel_spacings(
-        self, 
-        run_name: str
-    ) -> list[float]:
+
+    def get_voxel_spacings(self, run_name: str) -> list[float]:
         """
         Extract voxel spacings associated with the run.
-        
+
         Parameters
         ----------
         run_name: run name
-        
+
         Returns
         -------
         voxel spacings available for the run
         """
         run = self.root.get_run(run_name)
         return [vs.voxel_size for vs in run.voxel_spacings]
-    
-    def get_tomogram_types(
-        self, 
-        run_name: str, 
-        voxel_spacing: float
-    ) -> list[str]:
+
+    def get_tomogram_types(self, run_name: str, voxel_spacing: float) -> list[str]:
         """
         Extract tomogram types associated with the run.
-        
+
         Parameters
         ----------
         run_name: run name
-        
+
         Returns
         -------
-        tomogram types available for the run  
+        tomogram types available for the run
         """
         run = self.root.get_run(run_name)
         voxel_spacing = run.get_voxel_spacing(voxel_spacing)
         tomograms = voxel_spacing.tomograms
         return [tomogram.tomo_type for tomogram in tomograms]
-    
+
     def get_run_tomogram(
-        self, 
-        run_name: str, 
-        voxel_spacing: float, 
-        tomo_type: str
+        self, run_name: str, voxel_spacing: float, tomo_type: str,
     ) -> zarr.core.Array:
         """
         Get tomogram for a particular run.
@@ -422,13 +405,13 @@ class CopickInterface:
         arrays = list(zarr.open(tomogram.zarr(), "r").arrays())
         _, array = arrays[0]  # 0 corresponds to unbinned
         return array
-    
+
     def get_run_coords(
         self,
         run_name: str,
         particle_name: str,
-        user_id: str,
-        session_id: str=None
+        user_id: str = None,
+        session_id: str = None,
     ) -> np.ndarray:
         """
         Extract coordinates for a partciular run.
@@ -442,25 +425,35 @@ class CopickInterface:
 
         Returns
         -------
-        coordinates in Angstrom of shape (n_coords, 3)
+        coords: coordinates in Angstrom of shape (n_coords, 3)
         """
         picks = self.root.get_run(run_name).get_picks(
             particle_name,
             session_id=session_id,
             user_id=user_id,
         )
+
         if len(picks) == 0:
             print(f"No picks found for run {run_name}")
             return np.empty(0)
-        return np.array(
-            [(p.location.x, p.location.y, p.location.z) for p in picks[0].points],
-        )
+        if (user_id is not None) and len(picks) > 1:
+            print(
+                f"Warning! Multiple CopickPicks found for run {run_name} and user_id {user_id}",
+            )
+
+        coords = []
+        for pickset in picks:
+            coords.extend(
+                [(p.location.x, p.location.y, p.location.z) for p in pickset.points],
+            )
+
+        return np.array(coords)
 
     def get_all_coords(
         self,
         particle_name: str,
-        user_id: str,
-        session_id: str=None
+        user_id: str = None,
+        session_id: str = None,
     ) -> dict:
         """
         Extract all coordinates for a particle across a dataset.
@@ -479,10 +472,9 @@ class CopickInterface:
         run_names = self.get_run_names()
         d_coords = {}
         for run_name in run_names:
-            coords = self.get_run_coords(run_name,
-                                         particle_name,
-                                         user_id,
-                                         session_id = session_id)
+            coords = self.get_run_coords(
+                run_name, particle_name, user_id=user_id, session_id=session_id,
+            )
             if len(coords) > 0:
                 d_coords[run_name] = coords
         return d_coords

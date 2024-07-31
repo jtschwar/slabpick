@@ -389,7 +389,9 @@ def make_particle_projections(
             if len(fnames) == 1 and os.path.splitext(in_coords)[-1] == ".json":
                 cp_interface = CopickInterface(in_coords)
                 coords = cp_interface.get_all_coords(
-                    particle_name, user_id, session_id=session_id,
+                    particle_name,
+                    user_id,
+                    session_id=session_id,
                 )
             elif len(fnames) == 1 and os.path.splitext(in_coords)[-1] == ".star":
                 coords = read_starfile(
@@ -414,6 +416,7 @@ def make_particle_projections(
 
             # generate particle projections from each run
             for run_name in coords:
+                print(f"on run {run_name}")
                 if load_method == "copick":
                     volume = cp_interface.get_run_tomogram(
                         run_name,
