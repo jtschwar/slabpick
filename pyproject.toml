@@ -50,6 +50,7 @@ dev = [
 
 [project.scripts]
 project_particles = "slabpick.cli.project_particles:main"
+project_tomograms = "slabpick.cli.project_tomograms:main"
 cs_center_picks = "slabpick.cli.cs_center_picks:main"
 cs_map_particles = "slabpick.cli.cs_map_particles:main"
 plot_coords_dist = "slabpick.cli.plot_coords_dist:main"
