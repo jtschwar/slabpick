@@ -1,16 +1,16 @@
 import os
 from argparse import ArgumentParser
 
-from slabpick.minislab import make_particle_projections
-from slabpick.settings import ProcessingConfigProjectParticles
+import slabpick.minislab as minislab
+from slabpick.settings import ProcessingConfigMakeMinislabs
 
 
 def parse_args():
     """Parser for command line arguments."""
     parser = ArgumentParser(
-        description="Generate starfile based on cryosparc-curated picks.",
+        description="Generate minislabs, or per-particle 2D projections.",
     )
-    # basic input/output arguments
+    
     parser.add_argument(
         "--in_coords",
         type=str,
@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument(
         "--in_vol",
         type=str,
-        required=True,
+        required=False,
         help="Directory containing volumes or a copick config file",
     )
     parser.add_argument(
@@ -29,8 +29,6 @@ def parse_args():
         required=True,
         help="Output directory for galleries and/or particle stack",
     )
-
-    # additional arguments related to input format
     parser.add_argument(
         "--extract_shape",
         type=int,
@@ -68,13 +66,13 @@ def parse_args():
         "--user_id",
         type=str,
         required=False,
-        help="User ID, required if coordinates from copick",
+        help="User ID if coordinates from copick",
     )
     parser.add_argument(
         "--session_id",
         type=str,
         required=False,
-        help="Session ID, applied if coordinates from copick",
+        help="Session ID if coordinates from copick",
     )
     parser.add_argument(
         "--particle_name",
@@ -82,14 +80,13 @@ def parse_args():
         required=False,
         help="Particle name, required if coordinates from copick",
     )
-
-    # optional arguments for formatting output
     parser.add_argument(
-        "--out_format",
+        "--angles",
+        type=float,
         required=False,
         nargs="+",
-        default=["gallery", "stack"],
-        help="Specify output mode -- gallery and/or stack",
+        default=[0],
+        help="Tilt angles to apply to each particle",
     )
     parser.add_argument(
         "--gallery_shape",
@@ -99,33 +96,6 @@ def parse_args():
         default=[16, 15],
         help="Number of gallery particles in (row,col) format",
     )
-    parser.add_argument(
-        "--one_per_vol",
-        required=False,
-        action="store_true",
-        help="Generate one gallery per volume, not applicable to stacks",
-    )
-    parser.add_argument(
-        "--normalize",
-        required=False,
-        action="store_true",
-        help="Normalize particle stacks",
-    )
-    parser.add_argument(
-        "--radius",
-        type=float,
-        required=False,
-        default=0.9,
-        help="Fractional radius for normalizing particle stacks",
-    )
-    parser.add_argument(
-        "--invert",
-        required=False,
-        action="store_true",
-        help="Invert contrast of particle stacks",
-    )
-
-    # arguments related to real-time mode
     parser.add_argument(
         "--live",
         required=False,
@@ -158,72 +128,78 @@ def generate_config(config):
 
     reconfig = {}
     reconfig["software"] = {"name": "slabpick", "version": "0.1.0"}
-    reconfig["input"] = {k: d_config[k] for k in ("in_coords", "in_vol")}
-    reconfig["output"] = {k: d_config[k] for k in ("out_dir", "out_format")}
+    reconfig["input"] = {k: d_config[k] for k in ["in_coords", "in_vol"]}
+    reconfig["output"] = {k: d_config[k] for k in ["out_dir"]}
 
     used_keys = [list(reconfig[key].keys()) for key in reconfig]
     used_keys = [p for param in used_keys for p in param]
     param_keys = [key for key in d_config if key not in used_keys]
     reconfig["parameters"] = {k: d_config[k] for k in param_keys}
 
-    reconfig = ProcessingConfigProjectParticles(**reconfig)
+    reconfig = ProcessingConfigMakeMinislabs(**reconfig)
 
     os.makedirs(config.out_dir, exist_ok=True)
-    with open(os.path.join(config.out_dir, "project_particles.json"), "w") as f:
+    with open(os.path.join(config.out_dir, "make_minislabs.json"), "w") as f:
         f.write(reconfig.model_dump_json(indent=4))
 
 
 def main():
+
     config = parse_args()
     generate_config(config)
 
-    as_stack = "stack" in config.out_format
-    as_gallery = "gallery" in config.out_format
-    if not as_stack and not as_gallery:
-        raise ValueError(
-            "out_format argument must contain at least one of gallery or stack",
+    # coordinates provided as multiple starfiles
+    if config.in_coords[-4:] == "star" and not os.path.isfile(config.in_coords):
+        if not config.live:
+            config.t_interval = config.t_exit = 0
+    
+        minislab.make_minislabs_live(
+            config.in_coords,
+            config.in_vol,
+            config.out_dir,
+            config.extract_shape,
+            config.voxel_spacing,
+            config.coords_scale,
+            col_name=config.col_name,
+            angles=config.angles,
+            gshape=tuple(config.gallery_shape),
+            t_interval=config.t_interval,
+            t_exit=config.t_exit,
         )
 
-    if (
-        os.path.splitext(config.in_coords)[-1] == ".json"
-        and config.particle_name is None
-    ):
-        raise ValueError("Missing particle name")
-    if os.path.splitext(config.in_vol)[-1] == ".json" and config.tomo_type is None:
-        raise ValueError("Missing tomogram type")
-    if (
-        os.path.splitext(config.in_vol)[-1] == ".json"
-        and os.path.splitext(config.in_coords)[-1] == ".json"
-    ):
-        if config.in_vol != config.in_coords:
-            print(
-                "Warning! in_vol and in_coords correspond to different copick config files",
-            )
+    # coordinates provided as a single starfile
+    elif os.path.splitext(config.in_coords)[-1] == ".star" and os.path.isfile(config.in_coords):
+        minislab.make_minislabs_from_starfile(
+            config.in_coords,
+            config.in_vol,
+            config.out_dir,
+            config.extract_shape,
+            config.voxel_spacing,
+            config.tomo_type,
+            coords_scale=config.coords_scale,
+            col_name=config.col_name,
+            angles=config.angles,
+            gshape=tuple(config.gallery_shape),
+        )
+    
+    # volume and coordinates provided in a copick configuration file
+    elif os.path.splitext(config.in_coords)[-1] == ".json":
+        minislab.make_minislabs_from_copick(
+            config.in_coords,
+            config.out_dir,
+            config.extract_shape,
+            config.voxel_spacing,
+            config.tomo_type,
+            config.particle_name,
+            user_id=config.user_id,
+            session_id=config.session_id,
+            angles=config.angles,
+            gshape=config.gallery_shape,
+        )
 
-    make_particle_projections(
-        config.in_vol,
-        config.in_coords,
-        config.out_dir,
-        config.extract_shape,
-        config.voxel_spacing,
-        coords_scale=config.coords_scale,
-        col_name=config.col_name,
-        tomo_type=config.tomo_type,
-        particle_name=config.particle_name,
-        user_id=config.user_id,
-        session_id=config.session_id,
-        as_gallery=as_gallery,
-        as_stack=as_stack,
-        gallery_shape=tuple(config.gallery_shape),
-        one_per_vol=config.one_per_vol,
-        normalize=config.normalize,
-        invert=config.invert,
-        radius=config.radius,
-        live=config.live,
-        t_interval=config.t_interval,
-        t_exit=config.t_exit,
-    )
+    else:
+        raise ValueError(f"{config.in_coords} not recognized as valid input")
 
-
+    
 if __name__ == "__main__":
     main()
