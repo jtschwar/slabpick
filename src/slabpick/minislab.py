@@ -1,4 +1,6 @@
 import os
+import time
+import glob
 import warnings
 
 import numpy as np
@@ -298,12 +300,12 @@ class Minislab:
                 if counter > len(key_list) - 1:
                     fill_volume = np.random.normal(
                         loc=np.abs(stacked.mean()),
-                        scale=2 * stacked.std(),
+                        scale=stacked.std(),
                         size=pshape,
                     )
                     fill_volume = scipy.ndimage.gaussian_filter(
                         fill_volume,
-                        sigma=2,
+                        sigma=1.4,
                     )
                     gallery[
                         i * pshape[0] : i * pshape[0] + pshape[0],
@@ -345,7 +347,7 @@ class Minislab:
             n_mgraphs -= 1
 
         os.makedirs(out_dir, exist_ok=True)
-        for nm in range(n_mgraphs):
+        for nm in range(self.num_galleries, n_mgraphs):
             print(f"Generating gallery {nm}")
             end_key = np.min([np.prod(gshape) * (nm + 1), max(key_list_all) + 1])
             key_list = list(np.arange(nm * np.prod(gshape), end_key).astype(int))
@@ -356,6 +358,42 @@ class Minislab:
 
         self.make_gallery_bookkeeper(out_dir)
 
+    def make_galleries_live(
+        self,
+        gshape: tuple[int, int],
+        out_dir: str,
+        apix: float,
+        final: bool=False,
+    ) -> None:
+        """
+        Generate as many full galleries as possible from stored
+        minislabs, unless in final mode, in which case generate
+        a gallery from whatever is left over.
+
+        Parameters
+        ----------
+        gshape: gallery shape in (nrows, ncols)
+        out_dir: output directory
+        apix: pixel size in Angstrom
+        """
+        os.makedirs(out_dir, exist_ok=True)
+        
+        if final:
+            self.make_galleries(gshape, out_dir, apix)
+            
+        else:
+            key_list_all = list(self.minislabs.keys())
+            n_mgraphs = len(key_list_all) // np.prod(gshape) 
+
+            for nm in range(self.num_galleries, n_mgraphs):
+                print(f"Generating gallery {nm}")
+                end_key = np.prod(gshape) * (nm + 1)
+                key_list = list(np.arange(nm * np.prod(gshape), end_key).astype(int))
+                gallery = self.make_one_gallery(gshape, key_list)
+                dataio.save_mrc(
+                    gallery, os.path.join(out_dir, f"particles_{nm:03d}.mrc"), apix=apix,
+                )
+        
     def make_gallery_bookkeeper(
         self,
         out_dir: str,
@@ -420,3 +458,183 @@ class Minislab:
         df.to_csv(os.path.join(out_dir, "particle_map.csv"), index=False)
 
         return stack
+
+
+def make_minislabs_from_starfile(
+    in_star: str,
+    in_vol: str,
+    out_dir: str,
+    extract_shape: tuple[int,int,int],
+    voxel_spacing: float,
+    tomo_type: str,
+    coords_scale: float=1,
+    col_name: str='rlnMicrographName',
+    angles: list=[0],
+    gshape: tuple[int,int]=(16,15),
+) -> None:
+    """
+    Generate minislabs where coordinates are provided as a starfile
+    and volumes as either a copick configuration file or a directory
+    containing mrc files.
+    
+    Parameters
+    ----------
+    in_star: single star file
+    in_vol: directory of tomograms or copick config file
+    out_dir: output directory
+    extract_shape: extraction shape in Angstrom along (X,Y,Z)
+    voxel_spacing: tomogram voxel spacing
+    tomo_type: tomogram type
+    coords_scale: factor to convert starfile coords to Angstrom
+    col_name: column name cooresponding to tomogram name
+    angles: angles if generating tilted minislabs
+    gshape: gallery shape (nrows, ncols)
+    """
+    d_coords = dataio.read_starfile(
+        in_star,
+        coords_scale=coords_scale,
+        col_name=col_name,
+    )
+    cp_interface = None
+    if os.path.isfile(in_vol):
+        cp_interface = dataio.CopickInterface(in_vol)
+    
+    extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
+    extract_shape = render_even(extract_shape)
+    
+    montage = Minislab(extract_shape, angles)        
+    for run_name in d_coords:
+        print(f"Processing volume {run_name}")
+        if cp_interface is None:
+            vol_name = os.path.join(in_vol, f"{run_name}.mrc")
+            volume = dataio.load_mrc(vol_name)
+        else:
+            volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+        coords_pixels = d_coords[run_name] / voxel_spacing
+        montage.make_minislabs(coords_pixels, volume, run_name)
+    montage.make_galleries(gshape, os.path.join(out_dir, "gallery"), voxel_spacing)
+    montage.make_stack(os.path.join(out_dir, "stack"), voxel_spacing)
+
+
+def make_minislabs_from_copick(
+    config: str,
+    out_dir: str,
+    extract_shape: tuple[int,int,int],
+    voxel_spacing: float,
+    tomo_type: str,
+    particle_name: str,
+    user_id: str=None,
+    session_id: str=None,
+    angles: list=[0],
+    gshape: tuple[int,int]=(16,15),
+) -> None:
+    """
+    Copick entry point for generating minislabs. Both coordinates and
+    volumes are specified in a copick configuration file. Minislabs are 
+    output both as galleries and a particle stack.
+    
+    Parameters
+    ----------
+    config: copick configuration file
+    out_dir: output directory
+    extract_shape: extraction shape in Angstrom along (X,Y,Z)
+    voxel_spacing: tomogram voxel spacing
+    tomo_type: tomogram type 
+    particle_name: particle name
+    user_id: copick user ID 
+    session_id: copick session ID 
+    angles: angles if generating tilted minislabs
+    gshape: gallery shape (nrows, ncols)
+    tomo_type: tomogram type
+    """
+    cp_interface = dataio.CopickInterface(config)
+    d_coords = cp_interface.get_all_coords(
+        particle_name,
+        user_id=user_id,
+        session_id=session_id,
+    )
+    
+    extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
+    extract_shape = render_even(extract_shape)
+    
+    montage = Minislab(extract_shape, angles)
+    for run_name in d_coords:
+        print(f"Processing volume {run_name}")
+        volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+        coords_pixels = d_coords[run_name] / voxel_spacing
+        montage.make_minislabs(coords_pixels, volume, run_name)
+    montage.make_galleries(gshape, os.path.join(out_dir, "gallery"), voxel_spacing)
+    montage.make_stack(os.path.join(out_dir, "stack"), voxel_spacing)
+
+
+def make_minislabs_live(
+    in_star: str,
+    in_vol: str,
+    out_dir: str,
+    extract_shape: tuple[int,int,int],
+    voxel_spacing: float,
+    coords_scale: float,
+    col_name: str='rlnMicrographName',
+    angles: list=[0],
+    gshape: tuple[int,int]=(16,15),
+    t_interval: float=300,
+    t_exit: float=1800,
+) -> None:
+    """
+    Live mode for generating minislabs. Volumes should be in a single
+    directory, while coordinates are derived from starfiles that are 
+    being generated live. Minislabs are output both as galleries and 
+    a particle stack.
+    
+    Parameters
+    ----------
+    in_star: glob-expandable path to star files
+    in_vol: directory containing tomograms in mrc format
+    out_dir: output directory
+    extract_shape: extraction shape in Angstrom along (X,Y,Z)
+    voxel_spacing: tomogram voxel spacing
+    coords_scale: factor to convert starfile coords to Angstrom
+    col_name: column name cooresponding to tomogram name
+    angles: angles if generating tilted minislabs
+    gshape: gallery shape (nrows, ncols)
+    t_interval: interval in seconds before checking for new files
+    t_exit: interval in seconds after which to exit if no new files found
+    """
+    start = time.time()
+    processed = []
+    
+    extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
+    extract_shape = render_even(extract_shape)
+    
+    montage = Minislab(extract_shape, angles)
+    while True:
+        fnames = glob.glob(in_star)
+        fnames = [fn for fn in fnames if fn not in processed]
+        print(time.strftime("%X %x %Z"), f": Found {len(fnames)} new files to process")
+        
+        if len(fnames) > 0:
+            d_coords = dataio.combine_star_files(
+                fnames,
+                coords_scale=coords_scale,
+                col_name=col_name,
+            )
+            
+            for run_name in d_coords:
+                print(f"Processing volume {run_name}")
+                vol_name = os.path.join(in_vol, f"{run_name}.mrc")
+                volume = dataio.load_mrc(vol_name)
+                coords_pixels = d_coords[run_name] / voxel_spacing
+                montage.make_minislabs(coords_pixels, volume, run_name)
+                
+            montage.make_galleries_live(gshape, os.path.join(out_dir, "gallery"), voxel_spacing)
+            
+            processed.extend(fnames)
+            start_time = time.time()
+            
+        time.sleep(t_interval)
+        t_elapsed = time.time() - start_time
+        if t_elapsed > t_exit:
+            break
+            
+    montage.make_galleries_live(gshape, os.path.join(out_dir, "gallery"), voxel_spacing, final=True)
+    montage.make_stack(os.path.join(out_dir, "stack"), voxel_spacing)

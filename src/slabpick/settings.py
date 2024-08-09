@@ -8,18 +8,17 @@ class ProcessingSoftware(BaseModel):
     version: str
 
 
-# for project_particles command
-class ProcessingInputProjectParticles(BaseModel):
+# for make_minislabs command
+class ProcessingInputMakeMinislabs(BaseModel):
     in_coords: str
-    in_vol: str
+    in_vol: Optional[str]
 
 
-class ProcessingOutputProjectParticles(BaseModel):
+class ProcessingOutputMakeMinislabs(BaseModel):
     out_dir: str
-    out_format: List[str]
 
 
-class ProcessingParametersProjectParticles(BaseModel):
+class ProcessingParametersMakeMinislabs(BaseModel):
     extract_shape: List[int]
     voxel_spacing: float
     coords_scale: float
@@ -28,21 +27,18 @@ class ProcessingParametersProjectParticles(BaseModel):
     user_id: Optional[str]
     session_id: Optional[str]
     particle_name: Optional[str]
+    angles: List[int]
     gallery_shape: List[int]
-    one_per_vol: bool
-    normalize: bool
-    radius: float
-    invert: bool
     live: bool
     t_interval: float
     t_exit: float
 
 
-class ProcessingConfigProjectParticles(BaseModel):
+class ProcessingConfigMakeMinislabs(BaseModel):
     software: ProcessingSoftware
-    input: ProcessingInputProjectParticles
-    output: ProcessingOutputProjectParticles
-    parameters: ProcessingParametersProjectParticles
+    input: ProcessingInputMakeMinislabs
+    output: ProcessingOutputMakeMinislabs
+    parameters: ProcessingParametersMakeMinislabs
 
 
 # for cs_center_picks command
