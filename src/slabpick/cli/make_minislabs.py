@@ -82,6 +82,7 @@ def parse_args():
     )
     parser.add_argument(
         "--angles",
+        type=float,
         required=False,
         nargs="+",
         default=[0],
