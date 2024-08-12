@@ -150,7 +150,7 @@ def main():
         cp_interface = dataio.CopickInterface(config.copick_json)
         d_coords = cp_interface.get_all_coords(
             config.particle_name,
-            config.user_id,
+            user_id=config.user_id,
             session_id=config.session_id,
         )
     else:
@@ -175,13 +175,13 @@ def main():
             rejected_set=config.rejected_set,
         )
 
-    # curate particles
+    # curate particles -- currently a particle is kept if any of its tilts is selected
     d_coords_sel = {}
     tomo_list = np.unique(curated_map.tomogram.values)
     for _i, tomo in enumerate(tomo_list):
         tomo_indices = np.where(curated_map.tomogram.values == tomo)[0]
         particle_indices = curated_map.iloc[tomo_indices].particle.values
-        d_coords_sel[tomo] = d_coords[tomo][particle_indices]
+        d_coords_sel[tomo] = d_coords[tomo][np.unique(particle_indices)]
         final_particle_count = np.sum(
             np.array([d_coords_sel[tomo].shape[0] for tomo in d_coords_sel]),
         )

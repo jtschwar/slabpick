@@ -122,7 +122,7 @@ def tilt_subvolume(
     )
 
     mdpt = int(subvolume_rot.shape[2] / 2)
-    hdim = int(extract_shape[2] / 2)
+    hdim = int(extract_shape[0] / 2)
 
     return subvolume_rot[:, :, mdpt - hdim : mdpt + hdim]
 
