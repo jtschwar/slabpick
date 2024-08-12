@@ -1,5 +1,8 @@
-from slabpick.slab import Slab
 from argparse import ArgumentParser
+
+import numpy as np
+
+from slabpick.slab import Slab
 
 
 def parse_args():
@@ -49,13 +52,19 @@ def parse_args():
         default=["EVN", "ODD"],
         help="List of substrings for volume exclusion",
     )
-    
+    parser.add_argument(
+        "--filenames",
+        type=str,
+        required=False,
+        help="Text file containing filename prefixes; suffix should be _Vol.mrc",
+    )
+
     return parser.parse_args()
 
 
 def main():
-
     config = parse_args()
+    filenames = np.loadtxt(config.filenames, dtype=str)
 
     slabber = Slab(
         config.zthick,
@@ -66,6 +75,7 @@ def main():
         config.out_dir,
         config.include_tags,
         config.exclude_tags,
+        filenames,
     )
 
 

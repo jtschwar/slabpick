@@ -4,9 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from slabpick.dataio import save_mrc
-from slabpick.dataio import load_mrc
-from slabpick.dataio import get_voxel_size
+from slabpick.dataio import get_voxel_size, load_mrc, save_mrc
 
 
 def determine_bounds(zthick, zslide, apix, volz):
@@ -57,7 +55,13 @@ class Slab:
         self.slab_names = []
         self.scount = 0
 
-    def get_vol_list(self, in_dir: str, include_tags: list = None, exclude_tags: list = None):
+    def get_vol_list(
+        self,
+        in_dir: str,
+        include_tags: list = None,
+        exclude_tags: list = None,
+        filenames: list = None,
+    ) -> list:
         """
         Get list of volumes to generate slabs from.
 
@@ -66,19 +70,31 @@ class Slab:
         in_dir: input directory of volumes
         include_tag: list of substrings for volume inclusion
         exclude_tag: list of substrings for volume exclusion
+        filenames: file prefixes (suffix should be _Vol.mrc) to use
         """
         if exclude_tags is None:
             exclude_tags = ["EVN", "ODD"]
         if include_tags is None:
             include_tags = ["Vol"]
-        fnames = glob.glob(os.path.join(in_dir, "*.mrc"))
+
+        if filenames is None:
+            fnames = glob.glob(os.path.join(in_dir, "*.mrc"))
+        else:
+            fnames = [os.path.join(in_dir, f"{fn}_Vol.mrc") for fn in filenames]
+
         for tag in include_tags:
             fnames = [fn for fn in fnames if tag in fn]
         for tag in exclude_tags:
             fnames = [fn for fn in fnames if tag not in fn]
         return fnames
 
-    def slice_volume(self, volume: np.ndarray, bounds: np.ndarray, thickness: int, out_dir: str):
+    def slice_volume(
+        self,
+        volume: np.ndarray,
+        bounds: np.ndarray,
+        thickness: int,
+        out_dir: str,
+    ):
         """
         Generate slabs from a single volume.
 
@@ -103,6 +119,7 @@ class Slab:
         out_dir: str,
         include_tags: list = None,
         exclude_tags: list = None,
+        filenames: list = None,
     ):
         """
         Generate slabs for each volume in the input directory.
@@ -113,13 +130,10 @@ class Slab:
         out_dir: output directory for slabs
         include_tag: list of substrings for volume inclusion
         exclude_tag: list of substrings for volume exclusion
+        filenames: file prefixes (suffix should be _Vol.mrc) to use
         """
-        if exclude_tags is None:
-            exclude_tags = ["EVN", "ODD"]
-        if include_tags is None:
-            include_tags = ["Vol"]
         os.makedirs(out_dir, exist_ok=True)
-        fnames = self.get_vol_list(in_dir, include_tags, exclude_tags)
+        fnames = self.get_vol_list(in_dir, include_tags, exclude_tags, filenames)
         if len(fnames) == 0:
             raise ValueError("No volumes found to process")
 
