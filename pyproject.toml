@@ -53,6 +53,7 @@ make_minislabs = "slabpick.cli.make_minislabs:main"
 make_slabs = "slabpick.cli.make_slabs:main"
 cs_center_picks = "slabpick.cli.cs_center_picks:main"
 cs_map_particles = "slabpick.cli.cs_map_particles:main"
+cs_map_slabs = "slabpick.cli.cs_map_slabs:main"
 plot_coords_dist = "slabpick.cli.plot_coords_dist:main"
 
 #[tool.hatch.version]

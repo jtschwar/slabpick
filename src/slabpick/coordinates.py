@@ -1,8 +1,13 @@
 import numpy as np
+import scipy.signal
 import scipy.spatial
 
+from slabpick.minislab import get_subvolume
 
-def map_coordinates(coords1: np.ndarray, coords2: np.ndarray, threshold: float) -> np.ndarray:
+
+def map_coordinates(
+    coords1: np.ndarray, coords2: np.ndarray, threshold: float,
+) -> np.ndarray:
     """
     Map coordinates between two sets based on a distance threshold.
 
@@ -48,8 +53,12 @@ def consolidate_coordinates(
     clusters = map_coordinates(coords1, coords2, threshold)
     c1_unique_indices = np.setdiff1d(np.arange(coords1.shape[0]), clusters[:, 0])
     c2_unique_indices = np.setdiff1d(np.arange(coords2.shape[0]), clusters[:, 1])
-    coords_cluster = np.average((coords1[clusters[:, 0]], coords2[clusters[:, 1]]), axis=0, weights=weights)
-    coords_merge = np.concatenate((coords1[c1_unique_indices], coords2[c2_unique_indices], coords_cluster))
+    coords_cluster = np.average(
+        (coords1[clusters[:, 0]], coords2[clusters[:, 1]]), axis=0, weights=weights,
+    )
+    coords_merge = np.concatenate(
+        (coords1[c1_unique_indices], coords2[c2_unique_indices], coords_cluster),
+    )
     return coords_merge, clusters
 
 
@@ -160,3 +169,53 @@ def merge_replicates(coords: np.ndarray, threshold: float) -> tuple[np.ndarray, 
 
     n_replicates = [len(entry) for entry in cluster_ids]
     return coords_unique, n_replicates
+
+
+def generate_window(dim: int) -> np.ndarray:
+    """
+    Generate a 2d cosine window to mask the non-central
+    region of a square box.
+
+    Parameters
+    ----------
+    dim: box length
+
+    Returns
+    -------
+    2d cosine window function
+    """
+    kx = scipy.signal.windows.cosine(dim)
+    return kx[:, np.newaxis] * kx[np.newaxis, :]
+
+
+def refine_z(
+    coords: np.ndarray,
+    volume: np.ndarray,
+    extract_shape: np.ndarray | tuple,
+    window: np.ndarray,
+) -> np.ndarray:
+    """
+    Refine the z-coordinate of the input coordinates based on intensity
+    statitics, specifically by finding the plane along the z-axis of a
+    subvolume crop with the minimum integrated intensity.
+
+    Parameters
+    ----------
+    coords: (X,Y,Z) coordinates of particle centers in pixels
+    volume: particle-containing tomogram
+    extract_shape: target (X,Y,Z) dimensions of extraction subvolumes
+    window: 2d window function to apply to each plane of the subvolume
+
+    Returns
+    -------
+    rcoords: coordinates with refined z-heights in pixels
+    """
+    rcoords = np.zeros_like(coords)
+    for i, c in enumerate(coords):
+        subvolume = get_subvolume(coords[i], volume, extract_shape)
+        filt_subvolume = subvolume * window[np.newaxis, :, :]
+        z_profile = np.sum(filt_subvolume, axis=(1, 2))
+        z_delta = subvolume.shape[2] / 2 - np.argmin(z_profile)
+        rcoords[i] = np.array([c[0], c[1], int(c[2] - z_delta)])
+
+    return rcoords
