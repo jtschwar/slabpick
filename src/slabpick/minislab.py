@@ -460,71 +460,18 @@ class Minislab:
         return stack
 
 
-def make_minislabs_from_starfile(
-    in_star: str,
+def make_minislabs_multi_entry(
+    in_coords: str,
     in_vol: str,
     out_dir: str,
     extract_shape: tuple[int,int,int],
     voxel_spacing: float,
-    tomo_type: str,
-    coords_scale: float=1,
-    col_name: str='rlnMicrographName',
-    angles: list=[0],
-    gshape: tuple[int,int]=(16,15),
-) -> None:
-    """
-    Generate minislabs where coordinates are provided as a starfile
-    and volumes as either a copick configuration file or a directory
-    containing mrc files.
-    
-    Parameters
-    ----------
-    in_star: single star file
-    in_vol: directory of tomograms or copick config file
-    out_dir: output directory
-    extract_shape: extraction shape in Angstrom along (X,Y,Z)
-    voxel_spacing: tomogram voxel spacing
-    tomo_type: tomogram type
-    coords_scale: factor to convert starfile coords to Angstrom
-    col_name: column name cooresponding to tomogram name
-    angles: angles if generating tilted minislabs
-    gshape: gallery shape (nrows, ncols)
-    """
-    d_coords = dataio.read_starfile(
-        in_star,
-        coords_scale=coords_scale,
-        col_name=col_name,
-    )
-    cp_interface = None
-    if os.path.isfile(in_vol):
-        cp_interface = dataio.CopickInterface(in_vol)
-    
-    extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
-    extract_shape = render_even(extract_shape)
-    
-    montage = Minislab(extract_shape, angles)        
-    for run_name in d_coords:
-        print(f"Processing volume {run_name}")
-        if cp_interface is None:
-            vol_name = os.path.join(in_vol, f"{run_name}.mrc")
-            volume = dataio.load_mrc(vol_name)
-        else:
-            volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
-        coords_pixels = d_coords[run_name] / voxel_spacing
-        montage.make_minislabs(coords_pixels, volume, run_name)
-    montage.make_galleries(gshape, os.path.join(out_dir, "gallery"), voxel_spacing)
-    montage.make_stack(os.path.join(out_dir, "stack"), voxel_spacing)
-
-
-def make_minislabs_from_copick(
-    config: str,
-    out_dir: str,
-    extract_shape: tuple[int,int,int],
-    voxel_spacing: float,
-    tomo_type: str,
-    particle_name: str,
+    tomo_type: str=None,
+    particle_name: str=None,
     user_id: str=None,
     session_id: str=None,
+    coords_scale: float=1,
+    col_name: str='rlnMicrographName',
     angles: list=[0],
     gshape: tuple[int,int]=(16,15),
 ) -> None:
@@ -535,7 +482,8 @@ def make_minislabs_from_copick(
     
     Parameters
     ----------
-    config: copick configuration file
+    in_coords: copick configuration file or starfile 
+    in_vol: directory containing tomograms or None if tomos from copick
     out_dir: output directory
     extract_shape: extraction shape in Angstrom along (X,Y,Z)
     voxel_spacing: tomogram voxel spacing
@@ -543,16 +491,33 @@ def make_minislabs_from_copick(
     particle_name: particle name
     user_id: copick user ID 
     session_id: copick session ID 
+    coords_scale: factor to convert starfile coords to Angstrom
+    col_name: column name cooresponding to tomogram name
     angles: angles if generating tilted minislabs
     gshape: gallery shape (nrows, ncols)
     tomo_type: tomogram type
     """
-    cp_interface = dataio.CopickInterface(config)
-    d_coords = cp_interface.get_all_coords(
-        particle_name,
-        user_id=user_id,
-        session_id=session_id,
-    )
+    # load coordinates -- starfile entry
+    if os.path.splitext(in_coords)[-1] == ".star":
+        cp_interface = None
+        d_coords = dataio.read_starfile(
+            in_coords,
+            coords_scale=coords_scale,
+            col_name=col_name,
+        )
+    # load coordinates -- copick entry
+    elif os.path.splitext(in_coords)[-1] == ".json":
+        cp_interface = dataio.CopickInterface(in_coords)
+        d_coords = cp_interface.get_all_coords(
+            particle_name,
+            user_id=user_id,
+            session_id=session_id,
+        )
+    else:
+        raise ValueError("in_coords argument not recognized")
+
+    if cp_interface is None and os.path.splitext(in_vol)[-1] == ".json":
+        cp_interface = dataio.CopickInterface(in_vol)
     
     extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
     extract_shape = render_even(extract_shape)
@@ -560,13 +525,19 @@ def make_minislabs_from_copick(
     montage = Minislab(extract_shape, angles)
     for run_name in d_coords:
         print(f"Processing volume {run_name}")
-        volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+        # load volume -- copick entry 
+        if cp_interface is not None:
+            volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+        # load volume -- directory entry
+        else:
+            vol_name = os.path.join(in_vol, f"{run_name}.mrc")
+            volume = dataio.load_mrc(vol_name)
         coords_pixels = d_coords[run_name] / voxel_spacing
         montage.make_minislabs(coords_pixels, volume, run_name)
     montage.make_galleries(gshape, os.path.join(out_dir, "gallery"), voxel_spacing)
     montage.make_stack(os.path.join(out_dir, "stack"), voxel_spacing)
 
-
+    
 def make_minislabs_live(
     in_star: str,
     in_vol: str,
