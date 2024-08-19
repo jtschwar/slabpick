@@ -6,7 +6,9 @@ from slabpick.minislab import get_subvolume
 
 
 def map_coordinates(
-    coords1: np.ndarray, coords2: np.ndarray, threshold: float,
+    coords1: np.ndarray,
+    coords2: np.ndarray,
+    threshold: float,
 ) -> np.ndarray:
     """
     Map coordinates between two sets based on a distance threshold.
@@ -54,7 +56,9 @@ def consolidate_coordinates(
     c1_unique_indices = np.setdiff1d(np.arange(coords1.shape[0]), clusters[:, 0])
     c2_unique_indices = np.setdiff1d(np.arange(coords2.shape[0]), clusters[:, 1])
     coords_cluster = np.average(
-        (coords1[clusters[:, 0]], coords2[clusters[:, 1]]), axis=0, weights=weights,
+        (coords1[clusters[:, 0]], coords2[clusters[:, 1]]),
+        axis=0,
+        weights=weights,
     )
     coords_merge = np.concatenate(
         (coords1[c1_unique_indices], coords2[c2_unique_indices], coords_cluster),
@@ -216,6 +220,11 @@ def refine_z(
         filt_subvolume = subvolume * window[np.newaxis, :, :]
         z_profile = np.sum(filt_subvolume, axis=(1, 2))
         z_delta = subvolume.shape[2] / 2 - np.argmin(z_profile)
-        rcoords[i] = np.array([c[0], c[1], int(c[2] - z_delta)])
+        z_refined = int(c[2] - z_delta)
+        if z_refined < 0:
+            z_refined = c[2]
+        if z_refined > volume.shape[0]:
+            z_refined = c[2]
+        rcoords[i] = np.array([c[0], c[1], z_refined])
 
     return rcoords
