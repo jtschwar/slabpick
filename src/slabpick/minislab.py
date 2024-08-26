@@ -525,13 +525,13 @@ def make_minislabs_multi_entry(
     montage = Minislab(extract_shape, angles)
     for run_name in d_coords:
         print(f"Processing volume {run_name}")
-        # load volume -- copick entry 
-        if cp_interface is not None:
-            volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
-        # load volume -- directory entry
-        else:
+        # load volume -- directory entry 
+        if in_vol is not None and os.path.isdir(in_vol):
             vol_name = os.path.join(in_vol, f"{run_name}.mrc")
             volume = dataio.load_mrc(vol_name)
+        # load volume -- copick entry
+        else:
+            volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
         coords_pixels = d_coords[run_name] / voxel_spacing
         montage.make_minislabs(coords_pixels, volume, run_name)
     montage.make_galleries(gshape, os.path.join(out_dir, "gallery"), voxel_spacing)
