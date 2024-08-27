@@ -19,10 +19,11 @@ def normalize_stack(particles: np.ndarray, radius: float = 0.9) -> np.ndarray:
     y, x = np.indices(pshape)
     center = pshape[1] / 2 - 0.5, pshape[0] / 2 - 0.5
     r = np.sqrt((x - center[0]) ** 2 + (y - center[1]) ** 2)
-    masked = np.broadcast_to(r > np.min(center) * radius, particles.shape).astype(int)
+    mask = np.broadcast_to(r < np.min(center) * radius, particles.shape).astype(int)
+    particles_masked = np.ma.masked_array(particles, mask=mask)
 
-    std_background = np.std(particles[masked == 1])
-    particles /= std_background
+    std_background = np.std(particles_masked, axis=(1,2)).data
+    particles /= std_background[:,np.newaxis,np.newaxis]
     return particles
 
 
