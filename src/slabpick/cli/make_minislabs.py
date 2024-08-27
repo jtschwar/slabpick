@@ -149,10 +149,10 @@ def main():
     generate_config(config)
 
     # coordinates provided as multiple starfiles
-    if config.in_coords[-4:] == "star" and not os.path.isfile(config.in_coords):
+    if config.in_coords[-4:] == "star" and "*" in config.in_coords:
         if not config.live:
             config.t_interval = config.t_exit = 0
-    
+
         minislab.make_minislabs_live(
             config.in_coords,
             config.in_vol,
@@ -167,39 +167,24 @@ def main():
             t_exit=config.t_exit,
         )
 
-    # coordinates provided as a single starfile
-    elif os.path.splitext(config.in_coords)[-1] == ".star" and os.path.isfile(config.in_coords):
-        minislab.make_minislabs_from_starfile(
+    # all other entrypoints
+    else:
+        minislab.make_minislabs_multi_entry(
             config.in_coords,
             config.in_vol,
             config.out_dir,
             config.extract_shape,
             config.voxel_spacing,
-            config.tomo_type,
+            tomo_type=config.tomo_type,
+            particle_name=config.particle_name,
+            user_id=config.user_id,
+            session_id=config.session_id,
             coords_scale=config.coords_scale,
             col_name=config.col_name,
             angles=config.angles,
             gshape=tuple(config.gallery_shape),
         )
-    
-    # volume and coordinates provided in a copick configuration file
-    elif os.path.splitext(config.in_coords)[-1] == ".json":
-        minislab.make_minislabs_from_copick(
-            config.in_coords,
-            config.out_dir,
-            config.extract_shape,
-            config.voxel_spacing,
-            config.tomo_type,
-            config.particle_name,
-            user_id=config.user_id,
-            session_id=config.session_id,
-            angles=config.angles,
-            gshape=config.gallery_shape,
-        )
-
-    else:
-        raise ValueError(f"{config.in_coords} not recognized as valid input")
-
+        
     
 if __name__ == "__main__":
     main()
