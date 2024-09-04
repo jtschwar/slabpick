@@ -53,6 +53,7 @@ class Slab:
         self.apix = None
         self.vol_names = []
         self.slab_names = []
+        self.bounds_list = np.empty(0).astype(int)
         self.scount = 0
 
     def get_vol_list(
@@ -138,20 +139,24 @@ class Slab:
             raise ValueError("No volumes found to process")
 
         self.apix = get_voxel_size(fnames[0])
-        volz = load_mrc(fnames[0]).shape[0]
-        bounds = determine_bounds(self.zthick, self.zslide, self.apix, volz)
         zdepth = int(np.around(self.zthick / self.apix))
 
         for _i, fn in enumerate(fnames):
             volume = load_mrc(fn)
-            self.slice_volume(volume, bounds, zdepth, out_dir)
-            self.vol_names.extend(len(bounds) * [fn])
+            volz = volume.shape[0]
+            if volz < self.zthick:
+                print(f"{fn} skipped due to insufficient thickness")
+            else:
+                bounds = determine_bounds(self.zthick, self.zslide, self.apix, volz)
+                self.slice_volume(volume, bounds, zdepth, out_dir)
+                self.vol_names.extend(len(bounds) * [fn])
+                self.bounds_list = np.concatenate((self.bounds_list, bounds))
 
         df = pd.DataFrame(
             {
                 "tomogram": self.vol_names,
                 "slab": self.slab_names,
-                "zstart": np.tile(bounds, len(fnames)),
+                "zstart": self.bounds_list,
                 "zdepth": len(self.vol_names) * [zdepth],
             },
         )
