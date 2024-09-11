@@ -3,8 +3,9 @@ import numpy as np
 
 def normalize_stack(particles: np.ndarray, radius: float = 0.9) -> np.ndarray:
     """
-    Normalize particle stacks so that the standard deviation
-    of the region outside the particle is unity.
+    Normalize a stack on a per-particle basis. The central
+    region inside the supplied fractional radius is masked
+    to compute the per-particle mean and standard deviation.
 
     Parameters
     ----------
@@ -22,8 +23,10 @@ def normalize_stack(particles: np.ndarray, radius: float = 0.9) -> np.ndarray:
     mask = np.broadcast_to(r < np.min(center) * radius, particles.shape).astype(int)
     particles_masked = np.ma.masked_array(particles, mask=mask)
 
-    std_background = np.std(particles_masked, axis=(1,2)).data
-    particles /= std_background[:,np.newaxis,np.newaxis]
+    mu_background = np.mean(particles_masked, axis=(1,2)).data
+    sigma_background = np.std(particles_masked, axis=(1,2)).data
+    particles -= mu_background[:,np.newaxis,np.newaxis]
+    particles /= sigma_background[:,np.newaxis,np.newaxis]
     return particles
 
 

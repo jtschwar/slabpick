@@ -57,6 +57,13 @@ def parse_args():
         help="Tomogram column name in starfile(s)",
     )
     parser.add_argument(
+        "--extension",
+        type=str,
+        required=False,
+        default="mrc",
+        help="Tomogram extension, either zarr or mrc",
+    )
+    parser.add_argument(
         "--tomo_type",
         type=str,
         required=False,
@@ -175,6 +182,7 @@ def main():
             config.out_dir,
             config.extract_shape,
             config.voxel_spacing,
+            extension=config.extension,
             tomo_type=config.tomo_type,
             particle_name=config.particle_name,
             user_id=config.user_id,
