@@ -466,6 +466,7 @@ def make_minislabs_multi_entry(
     out_dir: str,
     extract_shape: tuple[int,int,int],
     voxel_spacing: float,
+    extension: str="mrc",
     tomo_type: str=None,
     particle_name: str=None,
     user_id: str=None,
@@ -487,6 +488,7 @@ def make_minislabs_multi_entry(
     out_dir: output directory
     extract_shape: extraction shape in Angstrom along (X,Y,Z)
     voxel_spacing: tomogram voxel spacing
+    extension: mrc or zarr if not loading from copick
     tomo_type: tomogram type 
     particle_name: particle name
     user_id: copick user ID 
@@ -495,7 +497,6 @@ def make_minislabs_multi_entry(
     col_name: column name cooresponding to tomogram name
     angles: angles if generating tilted minislabs
     gshape: gallery shape (nrows, ncols)
-    tomo_type: tomogram type
     """
     # load coordinates -- starfile entry
     if os.path.splitext(in_coords)[-1] == ".star":
@@ -527,8 +528,11 @@ def make_minislabs_multi_entry(
         print(f"Processing volume {run_name}")
         # load volume -- directory entry 
         if in_vol is not None and os.path.isdir(in_vol):
-            vol_name = os.path.join(in_vol, f"{run_name}.mrc")
-            volume = dataio.load_mrc(vol_name)
+            vol_name = os.path.join(in_vol, f"{run_name}.{extension}")
+            if extension == "mrc":
+                volume = dataio.load_mrc(vol_name)
+            elif extension == "zarr":
+                volume = np.array(zarr.open(vol_name, "r"))
         # load volume -- copick entry
         else:
             volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
