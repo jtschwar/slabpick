@@ -136,7 +136,10 @@ def cluster_coordinates(coords: np.ndarray, threshold: float) -> list:
     -------
     clusters: list of tuples containing replicate entries
     """
-    distances = scipy.spatial.distance.cdist(coords, coords)
+    # compute self-distances, adding offset to pick up non-diagonal exact replicates
+    offset = np.random.random_sample(size=(coords.shape))
+    distances = scipy.spatial.distance.cdist(coords, coords+offset)
+    np.fill_diagonal(distances, 0)
     indices = np.where((np.triu(distances) > 0) & (np.triu(distances) < threshold))
 
     clusters = []
@@ -173,6 +176,28 @@ def merge_replicates(coords: np.ndarray, threshold: float) -> tuple[np.ndarray, 
 
     n_replicates = [len(entry) for entry in cluster_ids]
     return coords_unique, n_replicates
+
+
+def merge_replicates_set(d_coords: dict, threshold: float) -> dict:
+    """
+    Merge replicates within each run of a coordinate set.
+
+    Parameters
+    ----------
+    d_coords: runs mapped to its set of coords in Angstrom
+    threshold: distance threshold in Angstrom for merging
+
+    Returns
+    -------
+    d_coords_unique: runs mapped to its unique coordinates
+    """
+    d_coords_unique = {}
+    for run_name in d_coords.keys():
+        d_coords_unique[run_name], nr = merge_replicates(
+            d_coords[run_name], 
+            threshold,
+        )
+    return d_coords_unique
 
 
 def generate_window(dim: int) -> np.ndarray:
