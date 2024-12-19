@@ -90,3 +90,30 @@ class ProcessingConfigCsMapParticles(BaseModel):
     input: ProcessingInputCsMapParticles
     output: ProcessingOutputCsMapParticles
     parameters: ProcessingParametersCsMapParticles
+
+
+# for rln_map_particles command
+class ProcessingInputRlnMapParticles(BaseModel):
+    rln_file: str
+    map_file: str
+    coords_file: str
+
+    
+class ProcessingOutputRlnMapParticles(BaseModel):
+    out_file: str
+
+    
+class ProcessingParametersRlnMapParticles(BaseModel):
+    particle_name: str
+    session_id: Optional[str]
+    user_id: Optional[str]
+    apix: Optional[float]
+    session_id_out: str
+    user_id_out: str
+
+    
+class ProcessingConfigRlnMapParticles(BaseModel):
+    software: ProcessingSoftware
+    input: ProcessingInputRlnMapParticles
+    output: ProcessingOutputRlnMapParticles
+    parameters: ProcessingParametersRlnMapParticles

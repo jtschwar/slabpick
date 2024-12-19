@@ -56,6 +56,7 @@ cs_map_particles = "slabpick.cli.cs_map_particles:main"
 cs_map_slabs = "slabpick.cli.cs_map_slabs:main"
 plot_coords_dist = "slabpick.cli.plot_coords_dist:main"
 normalize_stack = "slabpick.cli.normalize_stack:main"
+rln_map_particles = "slabpick.cli.rln_map_particles:main"
 
 #[tool.hatch.version]
 #source = "slabpick/__init__.py"
