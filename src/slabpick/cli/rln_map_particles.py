@@ -73,7 +73,12 @@ def parse_args():
         required=False,
         help="Tilt-series pixel size, inverse of this will be applied if writing out a starfile",
     )
-
+    parser.add_argument(
+        "--rejected_set",
+        action="store_true",
+        help="Extract coordinates of the rejected particles in the star file",
+    )
+    
     return parser.parse_args()
 
 
@@ -92,6 +97,7 @@ def generate_config(config):
         "apix",
         "session_id_out",
         "user_id_out",
+        "rejected_set",
     ]
 
     reconfig = {}
@@ -130,6 +136,9 @@ def main():
     rln_particles = starfile.read(config.rln_file)["particles"]
     indices = np.array([fn.split("@")[0] for fn in rln_particles.rlnImageName.values]).astype(int)
     particles_map = pd.read_csv(config.map_file)
+    if config.rejected_set:
+        print("Selecting the rejected particles")
+        indices = np.setdiff1d(np.arange(len(particles_map)), indices)
     curated_map = particles_map.iloc[indices]
     
     # curate particles, retaining a particle if any of its tilts is selected

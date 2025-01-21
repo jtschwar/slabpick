@@ -97,7 +97,7 @@ class ProcessingInputRlnMapParticles(BaseModel):
     rln_file: str
     map_file: str
     coords_file: str
-
+    
     
 class ProcessingOutputRlnMapParticles(BaseModel):
     out_file: str
@@ -110,7 +110,8 @@ class ProcessingParametersRlnMapParticles(BaseModel):
     apix: Optional[float]
     session_id_out: str
     user_id_out: str
-
+    rejected_set: bool
+    
     
 class ProcessingConfigRlnMapParticles(BaseModel):
     software: ProcessingSoftware
