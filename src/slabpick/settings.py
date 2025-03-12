@@ -83,6 +83,8 @@ class ProcessingParametersCsMapParticles(BaseModel):
     coords_scale: float
     apix: float
     rejected_set: bool
+    session_id_out: Optional[str]
+    user_id_out: Optional[str]
 
 
 class ProcessingConfigCsMapParticles(BaseModel):
@@ -108,8 +110,8 @@ class ProcessingParametersRlnMapParticles(BaseModel):
     session_id: Optional[str]
     user_id: Optional[str]
     apix: Optional[float]
-    session_id_out: str
-    user_id_out: str
+    session_id_out: Optional[str]
+    user_id_out: Optional[str]
     rejected_set: bool
     
     
