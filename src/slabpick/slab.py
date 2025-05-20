@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from slabpick.dataio import get_voxel_size, load_mrc, save_mrc
 
@@ -141,7 +142,7 @@ class Slab:
         self.apix = get_voxel_size(fnames[0])
         zdepth = int(np.around(self.zthick / self.apix))
 
-        for _i, fn in enumerate(fnames):
+        for _i, fn in tqdm(enumerate(fnames)):
             volume = load_mrc(fn)
             volz = volume.shape[0]
             if volz < self.zthick:

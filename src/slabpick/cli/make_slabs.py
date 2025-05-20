@@ -64,7 +64,10 @@ def parse_args():
 
 def main():
     config = parse_args()
-    filenames = np.loadtxt(config.filenames, dtype=str)
+
+    filenames = None
+    if config.filenames:
+        filenames = np.loadtxt(config.filenames, dtype=str)
 
     slabber = Slab(
         config.zthick,
