@@ -29,6 +29,8 @@ class ProcessingParametersMakeMinislabs(BaseModel):
     particle_name: Optional[str]
     angles: List[int]
     gallery_shape: List[int]
+    make_stack: bool
+    invert_contrast: bool
     live: bool
     t_interval: float
     t_exit: float

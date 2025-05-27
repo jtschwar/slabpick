@@ -104,6 +104,16 @@ def parse_args():
         help="Number of gallery particles in (row,col) format",
     )
     parser.add_argument(
+        "--make_stack",
+        action="store_true",
+        help="Make particle stack instead of galleries",
+    )
+    parser.add_argument(
+        "--invert_contrast",
+        action="store_true",
+        help="Invert default contrast",
+    )
+    parser.add_argument(
         "--live",
         required=False,
         action="store_true",
@@ -191,6 +201,8 @@ def main():
             col_name=config.col_name,
             angles=config.angles,
             gshape=tuple(config.gallery_shape),
+            make_stack=config.make_stack,
+            invert_contrast=config.invert_contrast,
         )
         
     
