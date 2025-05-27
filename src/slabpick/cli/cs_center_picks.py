@@ -75,7 +75,8 @@ def main():
         idx = np.where(
             [f"particles_{gn:03}.mrc" in fn.decode("utf-8") for fn in mgraph_id],
         )[0]
-        assert len(idx) > np.prod(gallery_shape)
+        if len(idx) < np.prod(gallery_shape):
+            raise ValueError("Insufficient picks per gallery. Please change blob-pick settings.")
         if i < gnums[-1]:
             retain_idx.extend(list(idx[: np.prod(gallery_shape)]))
         else:

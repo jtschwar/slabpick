@@ -7,6 +7,7 @@ import pandas as pd
 import slabpick.csedit as csedit
 import slabpick.dataio as dataio
 from slabpick.settings import ProcessingConfigCsMapParticles
+from copick.impl.filesystem import CopickRootFSSpec
 
 
 def parse_args():
@@ -73,8 +74,20 @@ def parse_args():
     parser.add_argument(
         "--out_file",
         type=str,
-        required=True,
-        help="Output starfile",
+        required=False,
+        help="Output copick json or Relion-4 starfile",
+    )
+    parser.add_argument(
+        "--session_id_out",
+        type=str,
+        required=False,
+        help="Copick session ID for output",
+    )
+    parser.add_argument(
+        "--user_id_out",
+        type=str,
+        required=False,
+        help="Copick user ID for output",
     )
     parser.add_argument(
         "--coords_scale",
@@ -86,7 +99,8 @@ def parse_args():
     parser.add_argument(
         "--apix",
         type=float,
-        required=True,
+        required=False,
+        default=1,
         help="Tilt-series pixel size, inverse of this will be applied when writing out starfile",
     )
     parser.add_argument(
@@ -112,6 +126,8 @@ def generate_config(config):
         "user_id",
         "coords_scale",
         "apix",
+        "session_id_out",
+        "user_id_out",
         "rejected_set",
     ]
 
@@ -130,7 +146,10 @@ def generate_config(config):
 
 
 def main():
+
     config = parse_args()
+    if config.out_file is None:
+        config.out_file = config.copick_json
     generate_config(config)
 
     # extract all particle coordinates
@@ -189,9 +208,16 @@ def main():
         f"Cryosparc reduced particle set size from {ini_particle_count} to {final_particle_count}",
     )
 
-    # generate Relion 4-compatible starfile
-    dataio.make_starfile(d_coords_sel, config.out_file, coords_scale=1.0 / config.apix)
+    if os.path.splitext(config.out_file)[1] == '.json':
+        print("Writing retained coordinates to a copick experiment")
+        root = CopickRootFSSpec.from_file(config.out_file)
+        dataio.coords_to_copick(root, d_coords_sel, config.particle_name, config.session_id_out, config.user_id_out)
+    elif os.path.splitext(config.out_file)[1] == '.star':
+        print("Writing retained coordinates to a Relion-4 star file")
+        dataio.make_starfile(d_coords_sel, config.out_file, coords_scale=1.0 / config.apix)
+    else:
+        raise ValueError(f"Unrecognized output argument, should be copick json or starfile")
 
-
+    
 if __name__ == "__main__":
     main()

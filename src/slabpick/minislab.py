@@ -8,6 +8,7 @@ import pandas as pd
 import scipy.ndimage
 import scipy.signal
 import zarr
+from tqdm import tqdm
 
 import slabpick.dataio as dataio
 
@@ -184,7 +185,7 @@ def generate_minislabs(
             buffered_shape = render_even(buffered_shape.astype(int))
 
     for i, c in enumerate(coords):
-        print(f"processing particle {i}")
+        #print(f"processing particle {i}")
         subvolume = get_subvolume(c, volume, buffered_shape)
         if subvolume.shape != tuple(buffered_shape)[::-1]:
             raise ValueError("Shapes do not match")
@@ -272,6 +273,9 @@ class Minislab:
         self,
         gshape: tuple[int, int],
         key_list: list,
+        contrast: float=1.0,
+        border_factor: float=1.1,
+        border_width: int=2,
     ) -> np.ndarray:
         """
         Generate one gallery by tiling the minislabs specified in key_list.
@@ -280,6 +284,9 @@ class Minislab:
         ----------
         gshape: gallery shape in (nrows, ncols)
         key_list: keys to pull from self.minislabs dict
+        contrast: -1 to invert contrast, else 1
+        border_factor: multiplicative factor times mean for border value
+        border_width: number of border pixels for around each tile
 
         Returns
         -------
@@ -289,39 +296,29 @@ class Minislab:
             raise IndexError("Number of minislabs exceeds number of gallery tiles.")
 
         pshape = self.minislabs[key_list[0]].shape  # particle shape
-        gallery = np.zeros((gshape[0] * pshape[0], gshape[1] * pshape[1])).astype(
-            np.float32,
-        )
-        stacked = np.array([self.minislabs[i] for i in self.minislabs])
+        gallery = np.zeros((gshape[0] * pshape[0], gshape[1] * pshape[1])).astype(np.float32)
+        stacked = np.array([contrast * self.minislabs[i] for i in key_list])
 
         counter = 0
         for i in range(gshape[0]):
             for j in range(gshape[1]):
                 if counter > len(key_list) - 1:
-                    fill_volume = np.random.normal(
-                        loc=np.abs(stacked.mean()),
-                        scale=stacked.std(),
-                        size=pshape,
-                    )
-                    fill_volume = scipy.ndimage.gaussian_filter(
-                        fill_volume,
-                        sigma=1.4,
-                    )
-                    gallery[
-                        i * pshape[0] : i * pshape[0] + pshape[0],
-                        j * pshape[1] : j * pshape[1] + pshape[1],
-                    ] = fill_volume
+                    fill_volume = np.random.choice(stacked.flatten(), size=pshape)
+                    gallery[i*pshape[0]: i*pshape[0]+pshape[0], j*pshape[1]: j*pshape[1]+pshape[1]] = fill_volume
                 else:
-                    gallery[
-                        i * pshape[0] : i * pshape[0] + pshape[0],
-                        j * pshape[1] : j * pshape[1] + pshape[1],
-                    ] = self.minislabs[key_list[counter]]
+                    gallery[i*pshape[0]: i*pshape[0]+pshape[0], j*pshape[1]: j*pshape[1]+pshape[1]] = stacked[counter]
                     self.row_idx.append(i)
                     self.col_idx.append(j)
                     self.gallery_idx.append(self.num_galleries)
                 counter += 1
-
         self.num_galleries += 1
+
+        if border_width != 0:
+            border_value = border_factor * np.mean(stacked)
+            for i in range(gshape[0]):
+                gallery[i*pshape[0]-border_width:i*pshape[0]+border_width] = border_value
+            for j in range(gshape[1]):
+                gallery[:,j*pshape[1]-border_width:j*pshape[1]+border_width] = border_value
 
         return gallery
 
@@ -429,6 +426,7 @@ class Minislab:
         self,
         out_dir: str,
         apix: float,
+        contrast: float=1.0,
     ) -> np.ndarray:
         """
         Generate a particle stack from all stored minislabs.
@@ -437,6 +435,7 @@ class Minislab:
         ----------
         out_dir: output directory
         apix: pixel size in Angstrom
+        contrast: -1 to invert contrast, else 1
 
         Returns
         -------
@@ -445,6 +444,7 @@ class Minislab:
         # generate particle stack
         os.makedirs(out_dir, exist_ok=True)
         stack = np.array([self.minislabs[i] for i in self.minislabs])
+        stack *= contrast
         dataio.save_mrc(stack, os.path.join(out_dir, "particles.mrcs"), apix=apix)
 
         # generate bookkeeping file
@@ -475,11 +475,12 @@ def make_minislabs_multi_entry(
     col_name: str='rlnMicrographName',
     angles: list=[0],
     gshape: tuple[int,int]=(16,15),
+    make_stack: bool=False,
+    invert_contrast: bool=False,
 ) -> None:
     """
-    Copick entry point for generating minislabs. Both coordinates and
-    volumes are specified in a copick configuration file. Minislabs are 
-    output both as galleries and a particle stack.
+    Entry point for generating minislabs from a Relion-4 starfile or 
+    copick coordinates and a directory of tomograms or copick volumes.
     
     Parameters
     ----------
@@ -497,6 +498,8 @@ def make_minislabs_multi_entry(
     col_name: column name cooresponding to tomogram name
     angles: angles if generating tilted minislabs
     gshape: gallery shape (nrows, ncols)
+    make_stack: if True, generate particle stack instead of galleries
+    invert_contrast: if True, invert default contrast
     """
     # load coordinates -- starfile entry
     if os.path.splitext(in_coords)[-1] == ".star":
@@ -522,9 +525,15 @@ def make_minislabs_multi_entry(
     
     extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
     extract_shape = render_even(extract_shape)
-    
+
+    contrast=1.0
+    if invert_contrast:
+        contrast=-1.0
+
+    n_tiles = np.prod(np.array(gshape))
     montage = Minislab(extract_shape, angles)
-    for run_name in d_coords:
+    
+    for run_name in tqdm(d_coords):
         print(f"Processing volume {run_name}")
         # load volume -- directory entry 
         if in_vol is not None and os.path.isdir(in_vol):
@@ -538,8 +547,27 @@ def make_minislabs_multi_entry(
             volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
         coords_pixels = d_coords[run_name] / voxel_spacing
         montage.make_minislabs(coords_pixels, volume, run_name)
-    montage.make_galleries(gshape, os.path.join(out_dir, "gallery"), voxel_spacing)
-    montage.make_stack(os.path.join(out_dir, "stack"), voxel_spacing)
+
+        # write out galleries as sufficient minislabs accumulate
+        if len(montage.minislabs) > n_tiles and not make_stack:
+            goffset = montage.num_galleries
+            n_galleries = len(montage.minislabs) // n_tiles
+            for ng in range(n_galleries):
+                gstart = ng + goffset
+                key_list = np.arange(gstart*n_tiles, gstart*n_tiles+n_tiles).astype(int)
+                gallery = montage.make_one_gallery(gshape, key_list, contrast=contrast)
+                dataio.save_mrc(gallery, os.path.join(out_dir, f"particles_{montage.num_galleries-1:03d}.mrc"), apix=voxel_spacing)
+                for k in key_list:
+                    montage.minislabs.pop(k)
+
+    if not make_stack:
+        key_list = list(montage.minislabs.keys())
+        gallery = montage.make_one_gallery(gshape, key_list, contrast=contrast)
+        dataio.save_mrc(gallery, os.path.join(out_dir, f"particles_{montage.num_galleries-1:03d}.mrc"), apix=voxel_spacing)
+        montage.make_gallery_bookkeeper(out_dir)
+    
+    if make_stack:
+        montage.make_stack(out_dir, voxel_spacing, contrast=contrast)
 
     
 def make_minislabs_live(

@@ -434,7 +434,7 @@ class CopickInterface:
         )
 
         if len(picks) == 0:
-            print(f"No picks found for run {run_name}")
+            #print(f"No picks found for run {run_name}")
             return np.empty(0)
         if (user_id is not None) and len(picks) > 1:
             print(
